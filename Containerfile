@@ -71,7 +71,7 @@ RUN pacman -S --noconfirm greetd xwayland-satellite xdg-desktop-portal-kde xdg-d
 # User frontend programs/apps
 RUN pacman -S --noconfirm steam gamescope scx-scheds scx-manager gnome-disk-utility mangohud lib32-mangohud
 
-RUN pacman -S --noconfirm plasma-desktop plasma-pa plasma-nm konsole micro dolphin
+RUN pacman -S --noconfirm plasma-desktop plasma-pa plasma-nm konsole micro dolphin cosign
 
 ##############################################################################################################################################
 ##############################################################################################################################################
