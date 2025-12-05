@@ -40,7 +40,7 @@ RUN pacman -S --noconfirm noto-fonts noto-fonts-cjk noto-fonts-emoji unicode-emo
 
 # CLI Utilities
 RUN pacman -S --noconfirm sudo bash bash-completion fastfetch btop jq less lsof nano openssh powertop man-db wget yt-dlp \
-      tree usbutils vim wl-clip-persist unzip ptyxis glibc-locales tar udev starship tuned-ppd tuned curl patchelf
+      tree usbutils vim wl-clip-persist unzip glibc-locales tar udev starship tuned-ppd tuned curl patchelf
 
 # Virtualization \ Containerization
 RUN pacman -S --noconfirm distrobox docker podman
@@ -271,7 +271,6 @@ ExecStart=/usr/bin/touch /etc/.linuxbrew\n\
 WantedBy=multi-user.target" > /usr/lib/systemd/system/brew-setup.service
 
 RUN systemctl enable brew-setup.service
-RUN systemctl enable sddm.service
 
 ##############################################################################################################################################################################
 ##############################################################################################################################################################################
@@ -327,7 +326,7 @@ RUN systemctl enable polkit.service \
     flatpak-preinstall.service \
     xeniaos-group-fix.service \
     uupd.timer
-
+RUN systemctl enable sddm.service
 
 
 # Activate NTSync.
