@@ -273,7 +273,6 @@ WantedBy=multi-user.target" > /usr/lib/systemd/system/brew-setup.service
 RUN systemctl enable brew-setup.service
 
 ##############################################################################################################################################################################
-# Section 7 - Systemd n Services | Hope is just like every other kind of work you do on your body, it's cyclical, and needs to be refreshed every day -Harpy #################
 ##############################################################################################################################################################################
 
 # Systemd flatpak preinstall service, thanks Aurora
