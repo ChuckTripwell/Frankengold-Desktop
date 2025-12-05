@@ -300,21 +300,21 @@ WantedBy=multi-user.target' > /usr/lib/systemd/system/flatpak-preinstall.service
 # FIXME Do NOT remove until fixed upstream or fixed universally. Updating with new fix also fine. Script created by Tulip.
 RUN mkdir -p /usr/lib/systemd/system-preset /usr/lib/systemd/system
 
-RUN echo -e '#!/bin/sh\ncat /usr/lib/sysusers.d/*.conf | grep -e "^g" | grep -v -e "^#" | awk "NF" | awk '\''{print $2}'\'' | grep -v -e "wheel" -e "root" -e "sudo" | xargs -I{} sed -i "/{}/d" $1' > /usr/libexec/xeniaos-group-fix
-RUN chmod +x /usr/libexec/xeniaos-group-fix
+RUN echo -e '#!/bin/sh\ncat /usr/lib/sysusers.d/*.conf | grep -e "^g" | grep -v -e "^#" | awk "NF" | awk '\''{print $2}'\'' | grep -v -e "wheel" -e "root" -e "sudo" | xargs -I{} sed -i "/{}/d" $1' > /usr/libexec/os-group-fix
+RUN chmod +x /usr/libexec/os-group-fix
 RUN echo -e '[Unit]\n\
 Description=Fix groups\n\
 Wants=local-fs.target\n\
 After=local-fs.target\n\
 [Service]\n\
 Type=oneshot\n\
-ExecStart=/usr/libexec/xeniaos-group-fix /etc/group\n\
-ExecStart=/usr/libexec/xeniaos-group-fix /etc/gshadow\n\
+ExecStart=/usr/libexec/os-group-fix /etc/group\n\
+ExecStart=/usr/libexec/os-group-fix /etc/gshadow\n\
 ExecStart=systemd-sysusers\n\
 [Install]\n\
-WantedBy=default.target multi-user.target' > /usr/lib/systemd/system/xeniaos-group-fix.service
+WantedBy=default.target multi-user.target' > /usr/lib/systemd/system/os-group-fix.service
 
-RUN echo -e "enable xeniaos-group-fix.service" > /usr/lib/systemd/system-preset/01-xeniaos-group-fix.preset
+RUN echo -e "enable os-group-fix.service" > /usr/lib/systemd/system-preset/01-os-group-fix.preset
 
 # System services (Machine Boot level)
 RUN systemctl enable polkit.service \
@@ -323,7 +323,7 @@ RUN systemctl enable polkit.service \
     tuned-ppd.service \
     firewalld.service \
     flatpak-preinstall.service \
-    xeniaos-group-fix.service \
+    os-group-fix.service \
     uupd.timer
 RUN systemctl enable sddm.service
 
