@@ -76,8 +76,8 @@ RUN pacman -S --noconfirm greetd xwayland-satellite xdg-desktop-portal-kde xdg-d
 RUN pacman -S --noconfirm steam gamescope scx-scheds scx-manager gnome-disk-utility mangohud lib32-mangohud
 
 # more
-RUN pacman -S --noconfirm sddm plasma-desktop plasma-pa plasma-nm konsole micro dolphin cosign \
-    qt6-virtualkeyboard maliit-keyboard maliit-framework just
+RUN pacman -S --noconfirm plasma-desktop plasma-pa plasma-nm konsole micro dolphin cosign \
+    just # qt6-virtualkeyboard
 
 ##############################################################################################################################################
 ##############################################################################################################################################
@@ -295,8 +295,12 @@ RUN systemctl enable polkit.service \
     firewalld.service \
     flatpak-preinstall.service \
     os-group-fix.service
-RUN systemctl enable sddm.service
 
+#RUN pacman --noconfirm -S sddm
+#RUN systemctl enable sddm.service
+
+RUN pacman --noconfirm -S gdm
+RUN systemctl enable gdm.service
 
 # Activate NTSync.
 RUN echo -e 'ntsync' > /etc/modules-load.d/ntsync.conf
