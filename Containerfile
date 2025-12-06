@@ -77,7 +77,7 @@ RUN pacman -S --noconfirm steam gamescope scx-scheds scx-manager gnome-disk-util
 
 # more
 RUN pacman -S --noconfirm sddm plasma-desktop plasma-pa plasma-nm konsole micro dolphin cosign \
-    qt6-virtualkeyboard krunner-bazaar topgrade
+    qt6-virtualkeyboard krunner-bazaar topgrade just
 
 ##############################################################################################################################################
 ##############################################################################################################################################
