@@ -360,16 +360,15 @@ RUN systemctl enable podman
 #
 RUN pacman -S --noconfirm base-devel git sudo && \
     useradd -m aur && echo "aur ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+RUN pacman -S paru
 USER aur
 WORKDIR /home/aur
-RUN git clone https://aur.archlinux.org/yay.git && \
-    cd yay && makepkg -si --noconfirm && \
-    yay -Sy --noconfirm uupd krunner-bazaar
+    paru -Sy --noconfirm uupd krunner-bazaar
 USER root
 RUN userdel -r aur || true && \
     rm -rf /home/aur && \
     rm -rf /var/cache/pacman/pkg/* /var/lib/pacman/sync/*
-RUN pacman -Rns base-devel
+RUN pacman -Rns base-devel paru
 
 RUN systemctl enable uupd.timer
 #_______________________________________________________________________________________________________________________________________
