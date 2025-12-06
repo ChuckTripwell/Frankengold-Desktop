@@ -363,7 +363,7 @@ RUN pacman -S --noconfirm base-devel git sudo && \
 RUN pacman --noconfirm -S paru
 USER aur
 WORKDIR /home/aur
-    paru -Sy --noconfirm uupd krunner-bazaar
+RUN paru -Sy --noconfirm uupd krunner-bazaar
 USER root
 RUN userdel -r aur || true && \
     rm -rf /home/aur && \
