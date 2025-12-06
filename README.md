@@ -41,3 +41,4 @@ yes, but note that you'll be stuck with the default linux-cachyos kernel.
 - add quality of life packages
 - add configs for secureboot
 - systemctl services to automate stuff like successful boot and such....
+- force steam to initiate so that games work
