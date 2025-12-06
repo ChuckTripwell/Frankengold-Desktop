@@ -1,4 +1,4 @@
-FROM ghcr.io/ublue-os/bazzite:testing AS bazzite
+#FROM ghcr.io/ublue-os/bazzite:testing AS bazzite
 
 FROM docker.io/cachyos/cachyos-v3:latest AS final
 
@@ -361,9 +361,25 @@ RUN sed -i 's|^HOME=.*|HOME=/var/home|' "/etc/default/useradd" && \
 
 #COPY --from="bazzite" 
 # fonts...?
-RUN mkdir -p /usr/share/fonts
-COPY --from="bazzite" /usr/share/fonts /usr/share/fonts
-RUN fc-cache -f -v
+#RUN mkdir -p /usr/share/fonts
+#COPY --from="bazzite" /usr/share/fonts /usr/share/fonts
+#RUN fc-cache -f -v
+
+RUN pacman -S --noconfirm \
+    noto-fonts \
+    noto-fonts-cjk \
+    noto-fonts-emoji \
+    opendesktop-fonts \
+    powerline-fonts \
+    xorg-fonts-encodings \
+    adwaita-fonts \
+    cantarell-fonts \
+    ttf-bitstream-vera \
+    ttf-dejavu \
+    ttf-fantasque-nerd \
+    ttf-hack \
+    ttf-liberation \
+    ttf-opensans
 
 # remove this later
 RUN pacman -S --noconfirm ptyxis
