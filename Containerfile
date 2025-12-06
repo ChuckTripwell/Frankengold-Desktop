@@ -77,7 +77,7 @@ RUN pacman -S --noconfirm steam gamescope scx-scheds scx-manager gnome-disk-util
 
 # more
 RUN pacman -S --noconfirm sddm plasma-desktop plasma-pa plasma-nm konsole micro dolphin cosign \
-    qt6-virtualkeyboard topgrade just
+    qt6-virtualkeyboard maliit-keyboard maliit-framework just
 
 ##############################################################################################################################################
 ##############################################################################################################################################
@@ -294,8 +294,7 @@ RUN systemctl enable polkit.service \
     tuned-ppd.service \
     firewalld.service \
     flatpak-preinstall.service \
-    os-group-fix.service \
-    uupd.timer
+    os-group-fix.service
 RUN systemctl enable sddm.service
 
 
@@ -365,6 +364,8 @@ RUN userdel -r aur || true && \
     rm -rf /home/aur && \
     rm -rf /var/cache/pacman/pkg/* /var/lib/pacman/sync/*
 RUN pacman -Rns base-devel
+
+RUN systemctl enable uupd.timer
 #_______________________________________________________________________________________________________________________________________
 
 
