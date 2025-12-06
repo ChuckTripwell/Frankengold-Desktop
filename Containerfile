@@ -77,7 +77,7 @@ RUN pacman -S --noconfirm steam gamescope scx-scheds scx-manager gnome-disk-util
 
 # more
 RUN pacman -S --noconfirm sddm plasma-desktop plasma-pa plasma-nm konsole micro dolphin cosign \
-    qt6-virtualkeyboard krunner-bazaar topgrade just
+    qt6-virtualkeyboard topgrade just
 
 ##############################################################################################################################################
 ##############################################################################################################################################
@@ -359,7 +359,7 @@ USER aur
 WORKDIR /home/aur
 RUN git clone https://aur.archlinux.org/yay.git && \
     cd yay && makepkg -si --noconfirm && \
-    yay -Sy --noconfirm uupd
+    yay -Sy --noconfirm uupd krunner-bazaar
 USER root
 RUN userdel -r aur || true && \
     rm -rf /home/aur && \
