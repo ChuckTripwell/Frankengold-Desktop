@@ -366,5 +366,8 @@ RUN mkdir -p /usr/local/share/fonts
 COPY --from="bazzite" /usr/share/fonts /usr/share/fonts
 COPY --from="bazzite" /usr/local/share/fonts /usr/local/share/fonts
 
+# remove this later
+RUN pacman -S --noconfirm ptyxis
+
 # finish
 RUN bootc container lint
