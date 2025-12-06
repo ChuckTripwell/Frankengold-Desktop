@@ -76,7 +76,8 @@ RUN pacman -S --noconfirm greetd xwayland-satellite xdg-desktop-portal-kde xdg-d
 RUN pacman -S --noconfirm steam gamescope scx-scheds scx-manager gnome-disk-utility mangohud lib32-mangohud
 
 # more
-RUN pacman -S --noconfirm sddm plasma-desktop plasma-pa plasma-nm konsole micro dolphin cosign
+RUN pacman -S --noconfirm sddm plasma-desktop plasma-pa plasma-nm konsole micro dolphin cosign \
+    qt6-virtualkeyboard krunner-bazaar topgrade
 
 ##############################################################################################################################################
 ##############################################################################################################################################
@@ -98,38 +99,6 @@ RUN pacman -S --noconfirm \
     chaotic-aur/adwaita-qt5-git \
     chaotic-aur/adwaita-qt6-git \
     chaotic-aur/bootc
-
-# Regular AUR Build Section
-# Create build user
-RUN useradd -m --shell=/bin/bash build && usermod -L build && \
-    echo "build ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers && \
-    echo "root ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-
-# Install AUR packages
-USER build
-WORKDIR /home/build
-RUN --mount=type=tmpfs,dst=/tmp \
-    git clone https://aur.archlinux.org/paru-bin.git --single-branch /tmp/paru && \
-    cd /tmp/paru && \
-    makepkg -si --noconfirm && \
-    cd .. && \
-    rm -drf paru-bin
-
-# AUR packages
-RUN paru -S --noconfirm \
-        aur/uupd
-
-USER root
-WORKDIR /
-# Cleanup and delete build user
-RUN userdel -r build && \
-    rm -drf /home/build && \
-    sed -i '/build ALL=(ALL) NOPASSWD: ALL/d' /etc/sudoers && \
-    sed -i '/root ALL=(ALL) NOPASSWD: ALL/d' /etc/sudoers && \
-    rm -rf /home/build && \
-    rm -rf \
-        /tmp/* \
-        /var/cache/pacman/pkg/*
 
 #######################################################################################################################################################
 #######################################################################################################################################################
@@ -230,9 +199,9 @@ application/x-tar=org.kde.ark.desktop\n\
 ENV QT_QPA_PLATFORMTHEME=qt6ct
 ENV LD_BIND_NOW=1
 ENV OBS_VKCAPTURE=1
-ENV QT_STYLE_OVERRIDE=Colloid-Orange-Dark-Catppuccin
-ENV XDG_MENU_PREFIX=arch-
-ENV XDG_MENU_PREFIX=plasma-
+#ENV QT_STYLE_OVERRIDE=Colloid-Orange-Dark-Catppuccin
+#ENV XDG_MENU_PREFIX=arch-
+#ENV XDG_MENU_PREFIX=plasma-
 RUN kbuildsycoca6
 
 # Set vm.max_map_count for stability/improved gaming performance
