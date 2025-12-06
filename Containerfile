@@ -358,11 +358,12 @@ RUN sed -i 's|^HOME=.*|HOME=/var/home|' "/etc/default/useradd" && \
     printf "d /var/roothome 0700 root root -\nd /run/media 0755 root root -" | tee -a "/usr/lib/tmpfiles.d/bootc-base-dirs.conf" && \
     printf '[composefs]\nenabled = yes\n[sysroot]\nreadonly = true\n' | tee "/usr/lib/ostree/prepare-root.conf"
 
-# fonts...?
-RUN mkdir -p /usr/share/fonts
 
 #COPY --from="bazzite" 
+# fonts...?
+RUN mkdir -p /usr/share/fonts
 COPY --from="bazzite" /usr/share/fonts /usr/share/fonts
+RUN fc-cache -f -v
 
 # remove this later
 RUN pacman -S --noconfirm ptyxis
