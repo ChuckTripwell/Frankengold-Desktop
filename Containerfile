@@ -1,4 +1,4 @@
-ghcr.io/ublue-os/bazzite:testing AS bazzite
+FROM ghcr.io/ublue-os/bazzite:testing AS bazzite
 
 FROM docker.io/cachyos/cachyos-v3:latest AS final
 
