@@ -319,8 +319,7 @@ RUN printf "systemdsystemconfdir=/etc/systemd/system\nsystemdsystemunitdir=/usr/
 RUN rm -rf /home/build/.cache/* && \
     rm -rf \
         /tmp/* \
-        /var/cache/pacman/pkg/* && \
-    pacman -Rns --noconfirm git
+        /var/cache/pacman/pkg/*
 
 # Necessary for general behavior expected by image-based systems
 RUN sed -i 's|^HOME=.*|HOME=/var/home|' "/etc/default/useradd" && \
@@ -368,7 +367,7 @@ USER root
 RUN userdel -r aur || true && \
     rm -rf /home/aur && \
     rm -rf /var/cache/pacman/pkg/* /var/lib/pacman/sync/*
-RUN pacman -Rns base-devel paru
+RUN pacman --noconfirm -Rns base-devel paru
 
 RUN systemctl enable uupd.timer
 #_______________________________________________________________________________________________________________________________________
