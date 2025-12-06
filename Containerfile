@@ -25,7 +25,7 @@ Exec = /usr/bin/rm -rf /var/cache/pacman/pkg" > /usr/share/libalpm/hooks/package
 # Initialize the database
 RUN pacman -Syu --noconfirm
 
-# Use the Arch mirrorlist that will be best at the moment for both the containerfile and user too! Fox will help!
+# Use the Arch mirrorlist that will be best at the moment for both the containerfile and user too!
 RUN pacman -S --noconfirm reflector
 
 # Base packages \ Linux Foundation \ Foss is love, foss is life! We split up packages by category for readability, debug ease, and less dependency trouble
@@ -73,6 +73,7 @@ RUN pacman -S --noconfirm greetd xwayland-satellite xdg-desktop-portal-kde xdg-d
 # User frontend programs/apps
 RUN pacman -S --noconfirm steam gamescope scx-scheds scx-manager gnome-disk-utility mangohud lib32-mangohud
 
+# more
 RUN pacman -S --noconfirm sddm plasma-desktop plasma-pa plasma-nm konsole micro dolphin cosign
 
 ##############################################################################################################################################
