@@ -360,7 +360,7 @@ RUN systemctl enable podman
 #
 RUN pacman -S --noconfirm base-devel git sudo && \
     useradd -m aur && echo "aur ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-RUN pacman -S paru
+RUN pacman --noconfirm -S paru
 USER aur
 WORKDIR /home/aur
     paru -Sy --noconfirm uupd krunner-bazaar
