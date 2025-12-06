@@ -368,6 +368,50 @@ RUN pacman -Rns base-devel
 #_______________________________________________________________________________________________________________________________________
 
 
+###########_____________________________________________________________________________________________________________________________
+# bazzite scripts need grub2-editenv
+#
+RUN ln -s /usr/bin/grub-editenv /usr/bin/grub2-editenv
+#_______________________________________________________________________________________________________________________________________
+
+###########_____________________________________________________________________________________________________________________________
+# create a /boot/grub to use bazzite scripts
+#
+RUN mkdir -p /usr/lib/systemd/system
+RUN touch /usr/lib/systemd/system/fix-grub-link.service
+RUN echo "[Unit]" > /usr/lib/systemd/system/fix-grub-link.service
+RUN echo "Description=Create /boot/grub symlink if missing" >> /usr/lib/systemd/system/fix-grub-link.service
+RUN echo "ConditionPathExists=!/boot/grub" >> /usr/lib/systemd/system/fix-grub-link.service
+RUN echo "" >> /usr/lib/systemd/system/fix-grub-link.service
+RUN echo "[Service]" >> /usr/lib/systemd/system/fix-grub-link.service
+RUN echo "Type=oneshot" >> /usr/lib/systemd/system/fix-grub-link.service
+RUN echo "ExecStart=/bin/ln -s /boot/grub2 /boot/grub" >> /usr/lib/systemd/system/fix-grub-link.service
+RUN echo "" >> /usr/lib/systemd/system/fix-grub-link.service
+RUN echo "[Install]" >> /usr/lib/systemd/system/fix-grub-link.service
+RUN echo "WantedBy=multi-user.target" >> /usr/lib/systemd/system/fix-grub-link.service
+
+RUN systemctl enable /usr/lib/systemd/system/fix-grub-link.service
+#_______________________________________________________________________________________________________________________________________
+
+
+###########_____________________________________________________________________________________________________________________________
+# services from bazzite
+RUN pacman -S --noconfirm --needed rsync 
+WORKDIR /tmp
+RUN git clone --depth 1 https://github.com/ublue-os/bazzite.git
+RUN rsync -a /tmp/bazzite/system_files/deck/kinoite/ /
+RUN rsync -a /tmp/bazzite/system_files/deck/shared/ /
+WORKDIR /
+RUN rm -rf /tmp/bazzite
+#_______________________________________________________________________________________________________________________________________
+
+
+###########_____________________________________________________________________________________________________________________________
+# activate services from bazzite
+RUN systemctl enable bazzite-grub-boot-success.timer
+RUN systemctl enable bazzite-grub-boot-success.service
+#_______________________________________________________________________________________________________________________________________
+
 
 # finish
 RUN bootc container lint
