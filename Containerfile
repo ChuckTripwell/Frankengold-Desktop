@@ -383,8 +383,11 @@ RUN cd /tmp && git clone --depth 1 https://github.com/ublue-os/bazzite.git
 RUN chmod +x /tmp/bazzite/system_files/deck/shared/usr/libexec/*
 RUN chmod +x /tmp/bazzite/system_files/deck/kinoite/usr/bin/*
 RUN chmod +x /tmp/bazzite/system_files/deck/shared/usr/bin/*
-RUN rsync -a /tmp/bazzite/system_files/deck/kinoite/ /
-RUN rsync -a /tmp/bazzite/system_files/deck/shared/ /
+RUN rsync -a /tmp/bazzite/system_files/deck/kinoite/usr/bin/* /usr/bin/
+RUN rsync -a /tmp/bazzite/system_files/deck/shared/usr/bin/* /usr/bin/
+RUN rsync -a /tmp/bazzite/system_files/deck/shared/usr/libexec/* /usr/libexec/
+RUN rsync -a /tmp/bazzite/system_files/deck/shared/usr/lib/systemd/system/bazzite-grub-boot-success.service /usr/lib/systemd/system/
+RUN rsync -a /tmp/bazzite/system_files/deck/shared/usr/lib/systemd/system/bazzite-grub-boot-success.timer /usr/lib/systemd/system/
 RUN rm -rf /tmp/bazzite
 #_______________________________________________________________________________________________________________________________________
 
