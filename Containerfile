@@ -394,6 +394,18 @@ RUN systemctl enable bazzite-grub-boot-success.timer
 RUN systemctl enable bazzite-grub-boot-success.service
 #_______________________________________________________________________________________________________________________________________
 
+###########_____________________________________________________________________________________________________________________________
+# fix sddm permissions
+#
+RUN mkdir -p /var/lib/sddm && \
+    chown -R sddm:sddm /var/lib/sddm && \
+    chmod 700 /var/lib/sddm
+
+RUN touch /var/lib/sddm/state.conf && \
+    chown sddm:sddm /var/lib/sddm/state.conf && \
+    chmod 600 /var/lib/sddm/state.conf
+#_______________________________________________________________________________________________________________________________________
+
 
 # finish
 RUN bootc container lint
