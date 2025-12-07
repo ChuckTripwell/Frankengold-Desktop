@@ -1,4 +1,4 @@
-FROM ghcr.io/ublue-os/bazzite:testing AS bazzite
+#FROM ghcr.io/ublue-os/bazzite:testing AS bazzite
 
 FROM docker.io/cachyos/cachyos-v3:latest AS layer1
 
@@ -432,8 +432,8 @@ RUN systemctl enable /usr/lib/systemd/system/fix-grub-link.service
 
 ###########_____________________________________________________________________________________________________________________________
 # activate services from bazzite
-RUN systemctl enable bazzite-grub-boot-success.timer
-RUN systemctl enable bazzite-grub-boot-success.service
+#RUN systemctl enable bazzite-grub-boot-success.timer
+#RUN systemctl enable bazzite-grub-boot-success.service
 #_______________________________________________________________________________________________________________________________________
 
 
