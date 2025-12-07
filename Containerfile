@@ -70,7 +70,7 @@ RUN pacman -S --noconfirm cups cups-browsed hplip
 # Desktop Environment needs
 RUN pacman -S --noconfirm xwayland-satellite xdg-user-dirs \
       ffmpegthumbs kdegraphics-thumbnailers kdenetwork-filesharing kio-admin chezmoi matugen accountsservice quickshell dgop cava dolphin \ 
-      brightnessctl wlsunset ddcutil xdg-utils kservice5 archlinux-xdg-menu shared-mime-info kio glycin desktop-portal-kde xdg-desktop-portal
+      brightnessctl wlsunset ddcutil xdg-utils kservice5 archlinux-xdg-menu shared-mime-info kio glycin
 
 # User frontend programs/apps
 RUN pacman -S --noconfirm steam gamescope scx-scheds scx-manager gnome-disk-utility mangohud lib32-mangohud
@@ -348,26 +348,6 @@ RUN pacman -S --noconfirm \
     ttf-opensans
 
 RUN systemctl enable podman
-
-
-
-###########_____________________________________________________________________________________________________________________________
-# Install aur packages
-#
-RUN pacman -S --noconfirm base-devel git sudo && \
-    useradd -m aur && echo "aur ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-RUN pacman --noconfirm -S paru
-USER aur
-WORKDIR /home/aur
-RUN paru -Sy --noconfirm uupd krunner-bazaar
-USER root
-RUN userdel -r aur || true && \
-    rm -rf /home/aur && \
-    rm -rf /var/cache/pacman/pkg/* /var/lib/pacman/sync/*
-RUN pacman --noconfirm -Rns base-devel paru
-
-RUN systemctl enable uupd.timer
-#_______________________________________________________________________________________________________________________________________
 
 
 ###########_____________________________________________________________________________________________________________________________
