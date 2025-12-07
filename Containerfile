@@ -423,10 +423,10 @@ RUN systemctl enable /usr/lib/systemd/system/fix-grub-link.service
 ###########_____________________________________________________________________________________________________________________________
 # service from bazzite to check for a successful boot
 #
-COPY --from="bazzite" /etc/sddm.conf.d/* /etc/sddm.conf.d/
-COPY --from="bazzite" /usr/lib/systemd/system/bazzite-* /usr/lib/systemd/system/
-COPY --from="bazzite" /usr/libexec/bazzite-* /usr/libexec/
-RUN chmod +x /usr/libexec/bazzite-*
+#COPY --from="bazzite" /etc/sddm.conf.d/* /etc/sddm.conf.d/
+#COPY --from="bazzite" /usr/lib/systemd/system/bazzite-* /usr/lib/systemd/system/
+#COPY --from="bazzite" /usr/libexec/bazzite-* /usr/libexec/
+#RUN chmod +x /usr/libexec/bazzite-*
 #_______________________________________________________________________________________________________________________________________
 
 
