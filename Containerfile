@@ -70,7 +70,7 @@ RUN pacman -S --noconfirm cups cups-browsed hplip
 # Desktop Environment needs
 RUN pacman -S --noconfirm xwayland-satellite xdg-user-dirs \
       ffmpegthumbs kdegraphics-thumbnailers kdenetwork-filesharing kio-admin chezmoi matugen accountsservice quickshell dgop cava dolphin \ 
-      brightnessctl wlsunset ddcutil xdg-utils kservice5 archlinux-xdg-menu shared-mime-info kio glycin
+      brightnessctl wlsunset ddcutil xdg-utils kservice5 archlinux-xdg-menu shared-mime-info kio glycin desktop-portal-kde xdg-desktop-portal
 
 # User frontend programs/apps
 RUN pacman -S --noconfirm steam gamescope scx-scheds scx-manager gnome-disk-utility mangohud lib32-mangohud
