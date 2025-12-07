@@ -68,15 +68,15 @@ RUN pacman -S --noconfirm pipewire pipewire-pulse pipewire-zeroconf pipewire-ffa
 RUN pacman -S --noconfirm cups cups-browsed hplip
 
 # Desktop Environment needs
-RUN pacman -S --noconfirm greetd xwayland-satellite xdg-desktop-portal-kde xdg-desktop-portal xdg-user-dirs xdg-desktop-portal-gnome \
+RUN pacman -S --noconfirm xwayland-satellite xdg-user-dirs \
       ffmpegthumbs kdegraphics-thumbnailers kdenetwork-filesharing kio-admin chezmoi matugen accountsservice quickshell dgop cava dolphin \ 
-      breeze brightnessctl wlsunset ddcutil xdg-utils kservice5 archlinux-xdg-menu shared-mime-info kio glycin greetd-regreet
+      brightnessctl wlsunset ddcutil xdg-utils kservice5 archlinux-xdg-menu shared-mime-info kio glycin
 
 # User frontend programs/apps
 RUN pacman -S --noconfirm steam gamescope scx-scheds scx-manager gnome-disk-utility mangohud lib32-mangohud
 
 # more
-RUN pacman -S --noconfirm plasma-desktop plasma-pa plasma-nm konsole micro dolphin cosign \
+RUN pacman -S --noconfirm plasma-desktop plasma-pa plasma-nm konsole micro dolphin breeze cosign \
 #    qt6-virtualkeyboard \
     just 
 
@@ -298,11 +298,8 @@ RUN systemctl enable polkit.service \
     flatpak-preinstall.service \
     os-group-fix.service
 
-#RUN pacman --noconfirm -S sddm
-#RUN systemctl enable sddm.service
-
-RUN pacman --noconfirm -S gdm
-RUN systemctl enable gdm.service
+RUN pacman --noconfirm -S sddm
+RUN systemctl enable sddm.service
 
 # Activate NTSync.
 RUN echo -e 'ntsync' > /etc/modules-load.d/ntsync.conf
