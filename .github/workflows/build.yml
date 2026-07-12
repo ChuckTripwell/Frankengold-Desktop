@@ -78,16 +78,18 @@ jobs:
         shell: bash
         env:
           KERNEL_SECRET: ${{ secrets.KERNEL_SECRET }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          DEFAULT_TAG: ${{ env.DEFAULT_TAG }}
         run: |
           podman run --name signer-env \
+            --pull=never \
             -e KERNEL_SECRET="$KERNEL_SECRET" \
-            -v ${{ github.workspace }}:/workspace:ro,Z \
-            localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }} \
+            -v "$GITHUB_WORKSPACE:/workspace:ro,Z" \
+            "localhost/$IMAGE_NAME:$DEFAULT_TAG" \
             bash /workspace/build_files/sign-kernel.sh
-          podman commit signer-env localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}
-          for tag in ${{ steps.metadata.outputs.tags }}; do
-            podman tag localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }} localhost/${{ env.IMAGE_NAME }}:$tag
-          done
+          
+          podman commit signer-env "localhost/$IMAGE_NAME:$DEFAULT_TAG"
+          
           podman rm -f signer-env
           
       # This is optional, this provides smaller delta updates
