@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+log() { echo "[custom-kernel] $*"; }
+error() { echo "[custom-kernel] Error: $*"; exit 1; }
+
+# Initialize variables globally so the trap can safely inspect them
+SECURE_TMP=""
+SIGNED_VMLINUZ=""
+TMP_DER=""
+
+# Single Unified Cleanup Trap
+cleanup() {
+    log "Performing cleanup..."
+    if [[ -n "${SIGNED_VMLINUZ:-}" ]]; then rm -f "$SIGNED_VMLINUZ"; fi
+    if [[ -n "${TMP_DER:-}" ]]; then rm -f "$TMP_DER"; fi
+    if [[ -n "${SECURE_TMP:-}" && -d "$SECURE_TMP" ]]; then
+        log "Cleaning up temporary directory: $SECURE_TMP"
+        rm -rf "$SECURE_TMP"
+    fi
+}
+trap cleanup EXIT
+
+log "Starting custom-kernel signing module..."
+
+SECURE_TMP=$(mktemp -d -t MOK.XXXXXX)
+SIGNING_KEY="$SECURE_TMP/MOK.priv"
+SIGNING_CERT="/workspace/build_files/MOK.pem"
+MOK_PASSWORD="universalblue"
+
+# Write secret and fix literal '\n' characters if present safely
+log "Extracting KERNEL_SECRET into temporary key: ${SIGNING_KEY}"
+if [[ "${KERNEL_SECRET:-}" == *'\n'* ]]; then
+    printf '%b' "${KERNEL_SECRET//\\n/$'\n'}" > "$SIGNING_KEY"
+else
+    printf '%s' "${KERNEL_SECRET:-}" > "$SIGNING_KEY"
+fi
+chmod 600 "$SIGNING_KEY"
+
+# Validate keys
+openssl pkey -in "${SIGNING_KEY}" -noout >/dev/null 2>&1 || error "${SIGNING_KEY} is not a valid private key"
+openssl x509 -in "${SIGNING_CERT}" -noout >/dev/null 2>&1 || error "${SIGNING_CERT} is not a valid X509 cert"
+
+if ! diff -q <(openssl pkey -in "${SIGNING_KEY}" -pubout) <(openssl x509 -in "${SIGNING_CERT}" -pubkey -noout) >/dev/null 2>&1; then
+    error "${SIGNING_KEY} and ${SIGNING_CERT} do not match"
+fi
+
+# Better targeting of actual kernel directory (skipping non-versioned folders)
+KERNEL_DIR="$(find /usr/lib/modules -mindepth 1 -maxdepth 1 -type d -name "[0-9]*" | sort -V | tail -n 1)"
+[[ -n "${KERNEL_DIR}" ]] || error "No valid kernel module directory found in /usr/lib/modules"
+
+KERNEL_VER="$(basename "${KERNEL_DIR}")"
+VMLINUZ="${KERNEL_DIR}/vmlinuz"
+[[ -f "${VMLINUZ}" ]] || error "Kernel image not found at ${VMLINUZ}"
+
+log "Signing kernel image: ${VMLINUZ} (Version: ${KERNEL_VER})"
+SIGNED_VMLINUZ="$(mktemp)"
+
+sbsign --key "${SIGNING_KEY}" --cert "${SIGNING_CERT}" --output "${SIGNED_VMLINUZ}" "${VMLINUZ}"
+sbverify --cert "${SIGNING_CERT}" "${SIGNED_VMLINUZ}" >/dev/null 2>&1 || error "Kernel signature verification failed for ${SIGNED_VMLINUZ}"
+
+install -m 0644 "${SIGNED_VMLINUZ}" "${VMLINUZ}"
+rm -f "${SIGNED_VMLINUZ}"
+SIGNED_VMLINUZ="" # Clear to prevent double-delete attempt in trap
+
+SIGN_FILE="${KERNEL_DIR}/build/scripts/sign-file"
+[[ -x "${SIGN_FILE}" ]] || error "sign-file not found or not executable: ${SIGN_FILE}"
+
+log "Scanning and signing kernel modules in parallel across $(nproc) cores..."
+
+sign_worker() {
+    local mod="$1" SIGN_FILE="$2" SIGNING_KEY="$3" SIGNING_CERT="$4"
+    case "${mod}" in
+    *.ko)
+        "${SIGN_FILE}" sha256 "${SIGNING_KEY}" "${SIGNING_CERT}" "${mod}" ;;
+    *.ko.xz)
+        raw="${mod%.xz}"
+        xz -d -q --rm "${mod}"
+        "${SIGN_FILE}" sha256 "${SIGNING_KEY}" "${SIGNING_CERT}" "${raw}"
+        xz -z -q -T0 "${raw}" ;; 
+    *.ko.zst)
+        raw="${mod%.zst}"
+        zstd -d -q --rm "${mod}"
+        "${SIGN_FILE}" sha256 "${SIGNING_KEY}" "${SIGNING_CERT}" "${raw}"
+        zstd -q -T0 --rm "${raw}" ;; 
+    *.ko.gz)
+        raw="${mod%.gz}"
+        gzip -d -q -f "${mod}"
+        "${SIGN_FILE}" sha256 "${SIGNING_KEY}" "${SIGNING_CERT}" "${raw}"
+        gzip -q -f "${raw}" ;;
+    esac
+}
+export -f sign_worker
+
+find "${KERNEL_DIR}" -type f \( -name "*.ko" -o -name "*.ko.xz" -o -name "*.ko.zst" -o -name "*.ko.gz" \) -print0 | \
+    xargs -0 -P "$(nproc)" -I {} bash -c 'sign_worker "$1" "$2" "$3" "$4"' _ {} "$SIGN_FILE" "$SIGNING_KEY" "$SIGNING_CERT"
+
+log "Updating module dependencies for kernel version ${KERNEL_VER}..."
+depmod -b / -a "${KERNEL_VER}"
+
+MOK_CERT="/usr/share/cert/MOK.der"
+log "Creating MOK enrollment file at ${MOK_CERT}..."
+TMP_DER="$(mktemp)"
+openssl x509 -in "${SIGNING_CERT}" -outform DER -out "${TMP_DER}"
+install -D -m 0644 "${TMP_DER}" "${MOK_CERT}"
+rm -f "${TMP_DER}"
+TMP_DER=""
+
+
+SERVICE="/usr/lib/systemd/system/mok-enroll.service"
+
+log "Writing systemd unit to $SERVICE..."
+
+mkdir -p /usr/lib/systemd/system
+
+echo "[Unit]" > "$SERVICE"
+echo "Description=Enroll MOK key after GUI starts" >> "$SERVICE"
+echo "ConditionPathExists=!/etc/mok_successfully_enrolled.lock" >> "$SERVICE"
+echo "After=graphical.target" >> "$SERVICE"
+echo "" >> "$SERVICE"
+echo "[Service]" >> "$SERVICE"
+echo "Type=oneshot" >> "$SERVICE"
+echo "RemainAfterExit=yes" >> "$SERVICE"
+echo "ExecStart=/bin/bash -c 'yes universalblue | mokutil --import "$MOK_CERT" && touch /etc/.mok_successfully_enrolled.lock'" >> "$SERVICE"
+echo "" >> "$SERVICE"
+echo "[Install]" >> "$SERVICE"
+echo "WantedBy=graphical.target" >> "$SERVICE"
+
+chmod 0644 "/usr/lib/systemd/system/mok-enroll.service"
+
+if [ -d /run/systemd/system ]; then
+    log "Enabling mok-enroll.service via systemctl..."
+    systemctl -f enable "mok-enroll.service"
+else
+    log "Container build detected. Manually symlinking mok-enroll.service into sysinit.target.wants..."
+    mkdir -p "/usr/lib/systemd/system/sysinit.target.wants"
+    ln -sf "/usr/lib/systemd/system/mok-enroll.service" "/usr/lib/systemd/system/sysinit.target.wants/mok-enroll.service"
+fi
+
+sbverify --cert "${SIGNING_CERT}" "${VMLINUZ}" >/dev/null 2>&1 || error "Final verification failed. ${VMLINUZ} is unsigned or modified."
+
+log "Kernel signing complete for version ${KERNEL_VER}."
