@@ -74,6 +74,29 @@ jobs:
             ${IMAGE_NAME} \
             ${DEFAULT_TAG}
 
+      - name: Sign kernel files inside container memory
+        shell: bash
+        env:
+          KERNEL_SECRET: ${{ secrets.KERNEL_SECRET }}
+        run: |
+          # 1. Spin up the unsigned image, passing the secret AND mounting the repository workspace files
+          podman run --name signer-env \
+            -e KERNEL_SECRET="$KERNEL_SECRET" \
+            -v ${{ github.workspace }}:/workspace:ro,Z \
+            localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }} \
+            bash /workspace/build_files/sign-kernel.sh
+          
+          # 2. Overwrite the Buildah database entry with the newly signed binaries 
+          podman commit signer-env localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}
+          
+          # 3. Synchronize all your original metadata tags onto the freshly updated storage ID
+          for tag in ${{ steps.metadata.outputs.tags }}; do
+            podman tag localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }} localhost/${{ env.IMAGE_NAME }}:$tag
+          done
+          
+          # 4. Clean up the ephemeral execution container
+          podman rm -f signer-env
+          
       # This is optional, this provides smaller delta updates
       - name: Rechunk with rpm-ostree
         id: rechunk
@@ -158,26 +181,3 @@ jobs:
           DIGEST: ${{ steps.push-image.outputs.digest }}
         run: |
           cosign sign -y --key env://COSIGN_PRIVATE_KEY ${IMAGE_REGISTRY}/${IMAGE_NAME}@${DIGEST}
-
-      - name: Sign kernel files inside container memory
-        shell: bash
-        env:
-          KERNEL_SECRET: ${{ secrets.KERNEL_SECRET }}
-        run: |
-          # 1. Spin up the unsigned image, passing the secret AND mounting the repository workspace files
-          podman run --name signer-env \
-            -e KERNEL_SECRET="$KERNEL_SECRET" \
-            -v ${{ github.workspace }}:/workspace:ro,Z \
-            localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }} \
-            bash /workspace/build_files/sign-kernel.sh
-          
-          # 2. Overwrite the Buildah database entry with the newly signed binaries 
-          podman commit signer-env localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}
-          
-          # 3. Synchronize all your original metadata tags onto the freshly updated storage ID
-          for tag in ${{ steps.metadata.outputs.tags }}; do
-            podman tag localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }} localhost/${{ env.IMAGE_NAME }}:$tag
-          done
-          
-          # 4. Clean up the ephemeral execution container
-          podman rm -f signer-env
