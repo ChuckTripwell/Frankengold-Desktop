@@ -1,41 +1,103 @@
-# Allow build scripts to be referenced without being copied into the final image
-FROM scratch AS ctx
-COPY build_files /
-COPY system_files /system_files
+##################################################################################################################################################
+### :::::: Pull CachyOS :::::: ###
+##################################################################################################################################################
+FROM docker.io/cachyos/cachyos-v3:latest AS cachyos
 
-# Base Image
-FROM ghcr.io/ublue-os/bazzite:stable@sha256:b923f92d5a5b59eb992e269383eba2744601052da9d3d1595f76e79aa6ce2df0
-## Other possible base images include:
-# FROM ghcr.io/ublue-os/bazzite:testing
-# FROM ghcr.io/ublue-os/aurora:stable
-# FROM ghcr.io/ublue-os/bluefin-nvidia-open:stable
-# 
-# ... and so on, here are more base images
-# Universal Blue Images: https://github.com/orgs/ublue-os/packages
-# Fedora base image: quay.io/fedora/fedora-bootc:44
-# CentOS base images: quay.io/centos-bootc/centos-bootc:stream10
+# :::::: prepare the kernel :::::: 
+  RUN rm -rf /lib/modules/*
+  RUN pacman -Sy --disable-sandbox --noconfirm
+  RUN pacman -Sy --disable-sandbox --noconfirm archlinux-keyring cachyos-keyring
+  RUN pacman -Sy --disable-sandbox --noconfirm
+  RUN pacman -S --disable-sandbox --noconfirm linux-cachyos-rc-nvidia-open linux-cachyos-rc-headers
+  RUN pacman -S --disable-sandbox --noconfirm vulkan-tools vulkan-icd-loader lib32-vulkan-icd-loader dkms nvidia-utils lib32-nvidia-utils
 
-### [IM]MUTABLE /opt
-## Some bootable images, like Fedora, have /opt symlinked to /var/opt, in order to
-## make it mutable/writable for users. However, some packages write files to this directory,
-## thus its contents might be wiped out when bootc deploys an image, making it troublesome for
-## some packages. Eg, google-chrome, docker-desktop.
-##
-## Uncomment the following line if one desires to make /opt immutable and be able to be used
-## by the package manager.
+##################################################################################################################################################
+### :::::: Pull Ublue-OS :::::: ###
+##################################################################################################################################################
+FROM ghcr.io/ublue-os/bazzite-nvidia-open:testing
 
-# RUN rm /opt && mkdir /opt
+# :::::: forcefully remove and replace kernel :::::: 
+RUN rm -rf /lib/modules/*
+COPY --from=cachyos /lib/modules /lib/modules
+COPY --from=cachyos /usr/share/licenses /usr/share/licenses
 
-### MODIFICATIONS
-## make modifications desired in your image and install packages by modifying the build.sh script
-## the following RUN directive does all the things required to run "build.sh" as recommended.
+##################################################################################################################################################
+### :::::: Modifications :::::: ###
+##################################################################################################################################################
+# :::::: disable countme ( sorry, but I prefer my telemetry opt-in. ) :::::: 
+RUN sed -i -e s,countme=1,countme=0, /etc/yum.repos.d/*.repo && systemctl mask --now rpm-ostree-countme.timer
 
-RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
-    --mount=type=cache,dst=/var/cache \
-    --mount=type=cache,dst=/var/log \
-    --mount=type=tmpfs,dst=/tmp \
-    /ctx/build.sh
+# :::::: tells distrobox use a sub-directory for /home :::::: 
+RUN mkdir -p /usr/share/distrobox/
+RUN touch /usr/share/distrobox/distrobox.conf
+RUN echo "DBX_CONTAINER_HOME_PREFIX=~/distrobox" >> /usr/share/distrobox/distrobox.conf
+RUN dnf5 -y install --allowerasing distrobox
 
-### LINTING
-## Verify final image and contents are correct.
+# :::::: preformence-related stuff :::::: 
+# scx gui and settings - essential for performance
+  RUN dnf5 -y copr enable bieszczaders/kernel-cachyos-addons
+    RUN dnf5 -y install --allowerasing scx-scheds scx-tools scxctl cachyos-settings uksmd scx-manager
+  RUN dnf5 -y copr disable bieszczaders/kernel-cachyos-addons
+
+# :::::: Install Some Packages :::::: 
+#
+RUN sed -i 's/^enabled=0$/enabled=1/' /etc/yum.repos.d/terra*
+#
+  RUN dnf5 -y install --allowerasing python3-pygame
+  RUN dnf5 -y install --allowerasing zcfan
+  RUN dnf5 -y install --allowerasing kde-partitionmanager
+#
+RUN sed -i 's/^enabled=1$/enabled=0/' /etc/yum.repos.d/terra*
+#
+
+# Set vm.max_map_count for stability/improved gaming performance
+# https://wiki.archlinux.org/title/Gaming#Increase_vm.max_map_count
+  RUN echo -e "vm.max_map_count = 2147483642" > /etc/sysctl.d/80-gamecompatibility.conf
+
+# :::::: Fix Audio :::::: 
+RUN mkdir -p /etc/systemd/user && \
+    echo "[Unit]" > /etc/systemd/user/audio-reset.service && \
+    echo "Description=Reset audio on user session start" >> /etc/systemd/user/audio-reset.service && \
+    echo "After=pipewire.service wireplumber.service" >> /etc/systemd/user/audio-reset.service && \
+    echo "" >> /etc/systemd/user/audio-reset.service && \
+    echo "[Service]" >> /etc/systemd/user/audio-reset.service && \
+    echo "Type=oneshot" >> /etc/systemd/user/audio-reset.service && \
+    echo "ExecStart=/usr/bin/systemctl --user restart pipewire pipewire-pulse wireplumber" >> /etc/systemd/user/audio-reset.service && \
+    echo "" >> /etc/systemd/user/audio-reset.service && \
+    echo "[Install]" >> /etc/systemd/user/audio-reset.service && \
+    echo "WantedBy=default.target" >> /etc/systemd/user/audio-reset.service
+#
+RUN systemctl --global enable audio-reset.service
+
+##################################################################################################################################################
+### :::::: Security and Finalization :::::: ###
+##################################################################################################################################################
+# :::::: Fix SELinux :::::: 
+#
+RUN sed -i 's/^SELINUX=permissive/SELINUX=enforcing/' /etc/selinux/config
+#
+RUN touch /etc/.autorelabel
+#
+RUN mkdir -p /usr/lib/bootc/kargs.d/
+RUN sed -i 's|/\.autorelabel|/etc/.autorelabel|g' /usr/lib/systemd/system/selinux-autorelabel-mark.service
+RUN sed -i 's|/\.autorelabel|/etc/.autorelabel|g' /usr/libexec/selinux/selinux-autorelabel
+RUN sed -i 's|/\.autorelabel|/etc/.autorelabel|g' /usr/lib/systemd/system-generators/selinux-autorelabel-generator.sh
+RUN echo 'kargs = ["lsm=landlock,lockdown,yama,integrity,selinux,bpf", "selinux=1", "enforcing=1", "selinux_dontaudit=0", "selinux_deny_unknown=1"]' > /usr/lib/bootc/kargs.d/90-security-overrides.toml
+#
+RUN sed -i 's/active = yes/active = no/' /etc/audit/plugins.d/sedispatch.conf
+#
+# :::::: SecureBoot :::::: 
+RUN dnf5 -y install --allowerasing mokutil sbsigntools
+#
+# :::::: slot the kernel into place :::::: 
+RUN mkdir -p /var/tmp
+RUN printf "systemdsystemconfdir=/etc/systemd/system\nsystemdsystemunitdir=/usr/lib/systemd/system\n" | tee /usr/lib/dracut/dracut.conf.d/30-bootcrew-fix-bootc-module.conf && \
+      printf 'hostonly=no\nadd_dracutmodules+=" ostree bootc "' | tee /usr/lib/dracut/dracut.conf.d/30-bootcrew-bootc-modules.conf && \
+      sh -c 'export KERNEL_VERSION="$(basename "$(find /usr/lib/modules -maxdepth 1 -type d | grep -v -E "*.img" | tail -n 1)")" && \
+      dracut --force --no-hostonly --reproducible --zstd --verbose --kver "$KERNEL_VERSION"  "/usr/lib/modules/$KERNEL_VERSION/initramfs.img"'
+#
+#  :::::: finish :::::: 
+RUN rm -rf /usr/etc
+CMD ["/sbin/init"]
+LABEL containers.bootc 1
 RUN bootc container lint
