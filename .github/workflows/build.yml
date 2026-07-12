@@ -79,41 +79,34 @@ jobs:
         env:
           KERNEL_SECRET: ${{ secrets.KERNEL_SECRET }}
         run: |
-          # 1. Spin up the unsigned image, passing the secret AND mounting the repository workspace files
           podman run --name signer-env \
             -e KERNEL_SECRET="$KERNEL_SECRET" \
             -v ${{ github.workspace }}:/workspace:ro,Z \
             localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }} \
             bash /workspace/build_files/sign-kernel.sh
-          
-          # 2. Overwrite the Buildah database entry with the newly signed binaries 
           podman commit signer-env localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}
-          
-          # 3. Synchronize all your original metadata tags onto the freshly updated storage ID
           for tag in ${{ steps.metadata.outputs.tags }}; do
             podman tag localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }} localhost/${{ env.IMAGE_NAME }}:$tag
           done
-          
-          # 4. Clean up the ephemeral execution container
           podman rm -f signer-env
           
       # This is optional, this provides smaller delta updates
-      - name: Rechunk with rpm-ostree
-        id: rechunk
-        run: |
-          sudo -E $(command -v just) ostree-rechunk \
-            ${IMAGE_NAME} \
-            ${DEFAULT_TAG}
+      #- name: Rechunk with rpm-ostree
+      #  id: rechunk
+      #  run: |
+      #    sudo -E $(command -v just) ostree-rechunk \
+      #      ${IMAGE_NAME} \
+      #      ${DEFAULT_TAG}
 
       # If you are feeling adventurous, use the new distro agnostic rechunker
       # https://github.com/coreos/chunkah
       # You can delete the Rechunk with rpm-ostree portion then if you use this
-      #- name: Rechunk with Chunkah
-      #  id: rechunk
-      #  run: |
-      #    sudo -E $(command -v just) rechunk \
-      #      ${IMAGE_NAME} \
-      #      ${DEFAULT_TAG}
+      - name: Rechunk with Chunkah
+        id: rechunk
+        run: |
+          sudo -E $(command -v just) rechunk \
+            ${IMAGE_NAME} \
+            ${DEFAULT_TAG}
 
       - name: Generate Build Tags
         id: gen-build-tags
