@@ -74,41 +74,23 @@ jobs:
             ${IMAGE_NAME} \
             ${DEFAULT_TAG}
 
-      - name: Sign kernel files inside container memory
-        shell: bash
-        env:
-          KERNEL_SECRET: ${{ secrets.KERNEL_SECRET }}
-          IMAGE_NAME: ${{ env.IMAGE_NAME }}
-          DEFAULT_TAG: ${{ env.DEFAULT_TAG }}
-        run: |
-          podman run --name signer-env \
-            --pull=never \
-            -e KERNEL_SECRET="$KERNEL_SECRET" \
-            -v "$GITHUB_WORKSPACE:/workspace:ro,Z" \
-            "localhost/$IMAGE_NAME:$DEFAULT_TAG" \
-            bash /workspace/build_files/sign-kernel.sh
-          
-          podman commit signer-env "localhost/$IMAGE_NAME:$DEFAULT_TAG"
-          
-          podman rm -f signer-env
-          
       # This is optional, this provides smaller delta updates
-      #- name: Rechunk with rpm-ostree
-      #  id: rechunk
-      #  run: |
-      #    sudo -E $(command -v just) ostree-rechunk \
-      #      ${IMAGE_NAME} \
-      #      ${DEFAULT_TAG}
+      - name: Rechunk with rpm-ostree
+        id: rechunk
+        run: |
+          sudo -E $(command -v just) ostree-rechunk \
+            ${IMAGE_NAME} \
+            ${DEFAULT_TAG}
 
       # If you are feeling adventurous, use the new distro agnostic rechunker
       # https://github.com/coreos/chunkah
       # You can delete the Rechunk with rpm-ostree portion then if you use this
-      - name: Rechunk with Chunkah
-        id: rechunk
-        run: |
-          sudo -E $(command -v just) rechunk \
-            ${IMAGE_NAME} \
-            ${DEFAULT_TAG}
+      #- name: Rechunk with Chunkah
+      #  id: rechunk
+      #  run: |
+      #    sudo -E $(command -v just) rechunk \
+      #      ${IMAGE_NAME} \
+      #      ${DEFAULT_TAG}
 
       - name: Generate Build Tags
         id: gen-build-tags
@@ -120,6 +102,29 @@ jobs:
           echo "Tags for this Action..."
           echo "${alias_tags}"
           echo "alias_tags=${alias_tags}" >> $GITHUB_OUTPUT
+
+      - name: Sign kernel files inside container memory
+        shell: bash
+        env:
+          KERNEL_SECRET: ${{ secrets.KERNEL_SECRET }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          DEFAULT_TAG: ${{ env.DEFAULT_TAG }}
+          ALIAS_TAGS: ${{ steps.gen-build-tags.outputs.alias_tags }}
+        run: |
+          sudo -E podman run --name signer-env \
+            --pull=never \
+            -e KERNEL_SECRET="$KERNEL_SECRET" \
+            -v "$GITHUB_WORKSPACE:/workspace:ro,Z" \
+            "$IMAGE_NAME:$DEFAULT_TAG" \
+            bash /workspace/build_files/sign-kernel.sh
+          
+          sudo -E podman commit signer-env "$IMAGE_NAME:$DEFAULT_TAG"
+          
+          for tag in ${ALIAS_TAGS}; do
+            sudo -E podman tag "$IMAGE_NAME:$DEFAULT_TAG" "$IMAGE_NAME:$tag"
+          done
+          
+          sudo -E podman rm -f signer-env
 
       - name: Tag Image
         id: tag-images
