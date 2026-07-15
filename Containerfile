@@ -71,7 +71,7 @@ RUN systemctl --global enable audio-reset.service
 
 
 # :::::: Nvidia Kargs :::::: 
-RUN echo 'kargs = ["rd.driver.blacklist=nouveau", "modprobe.blacklist=nouveau", "nvidia-drm.modeset=1", "initcall_blacklist=simpledrm_platform_driver_init"] > /usr/lib/bootc/kargs.d/00-nvidia.toml
+RUN echo 'kargs = ["rd.driver.blacklist=nouveau", "modprobe.blacklist=nouveau", "nvidia-drm.modeset=1", "initcall_blacklist=simpledrm_platform_driver_init"]' > /usr/lib/bootc/kargs.d/00-nvidia.toml
 
 
 ##################################################################################################################################################
