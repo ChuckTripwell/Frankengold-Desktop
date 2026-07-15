@@ -69,15 +69,10 @@ jobs:
 # This actually builds the container image
       - name: Build Image
         id: build-image
-        uses: redhat-actions/buildah-build@v2
-        with:
-          containerfiles: |
-            ./Containerfile
-          image: ${{ env.IMAGE_NAME }}
-          tags: ${{ env.DEFAULT_TAG }}
-          oci: false
-          extra-args: |
-            --output=type=containers-storage,name=${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}
+        run: |
+          sudo -E $(command -v just) build \
+            "${IMAGE_NAME}" \
+            "${DEFAULT_TAG}"
 
       # This is optional, this provides smaller delta updates
       - name: Rechunk with rpm-ostree
