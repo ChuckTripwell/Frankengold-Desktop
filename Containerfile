@@ -93,7 +93,10 @@ RUN sed -i 's/active = yes/active = no/' /etc/audit/plugins.d/sedispatch.conf
 #
 # :::::: SecureBoot :::::: 
 RUN dnf5 -y install --allowerasing mokutil sbsigntools
-#
+
+# :::::: cleanup :::::: 
+RUN dnf5 cleanup -m
+
 # :::::: slot the kernel into place :::::: 
 RUN mkdir -p /var/tmp
 RUN printf "systemdsystemconfdir=/etc/systemd/system\nsystemdsystemunitdir=/usr/lib/systemd/system\n" | tee /usr/lib/dracut/dracut.conf.d/30-bootcrew-fix-bootc-module.conf && \
