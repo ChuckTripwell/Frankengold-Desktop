@@ -95,7 +95,18 @@ RUN sed -i 's/active = yes/active = no/' /etc/audit/plugins.d/sedispatch.conf
 RUN dnf5 -y install --allowerasing mokutil sbsigntools
 
 # :::::: cleanup :::::: 
-RUN dnf5 cleanup -m
+RUN dnf5 clean all && \
+    rpm-ostree cleanup -m && \
+    rm -rf /var/cache/dnf/* /var/cache/rpm-ostree/* /var/tmp/* /tmp/*
+
+# Remove handheld-specific firmware
+RUN rm -rf /usr/lib/firmware/amdgpu/vangar* && \
+    rm -rf /usr/lib/firmware/amdgpu/deckard* && \
+    rm -rf /usr/lib/firmware/rtw89
+
+# Remove heavy icon themes
+RUN rm -rf /usr/share/icons/Adwaita && \
+    rm -rf /usr/share/icons/HighContrast
 
 # :::::: slot the kernel into place :::::: 
 RUN mkdir -p /var/tmp
