@@ -76,6 +76,8 @@ jobs:
           image: ${{ env.IMAGE_NAME }}
           tags: ${{ env.DEFAULT_TAG }}
           oci: false
+          extra-args: |
+            --output=type=containers-storage,name=${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}
 
       # This is optional, this provides smaller delta updates
       - name: Rechunk with rpm-ostree
