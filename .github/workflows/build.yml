@@ -70,7 +70,7 @@ jobs:
       - name: Build Image
         id: build-image
         run: |
-          sudo -E STORAGE_DRIVER=overlay $(command -v just) build \
+          sudo -E $(command -v just) build \
             ${IMAGE_NAME} \
             ${DEFAULT_TAG}
 
