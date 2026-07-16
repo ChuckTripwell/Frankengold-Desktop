@@ -117,6 +117,5 @@ RUN printf "systemdsystemconfdir=/etc/systemd/system\nsystemdsystemunitdir=/usr/
 #
 #  :::::: finish :::::: 
 RUN rm -rf /usr/etc
-CMD ["/sbin/init"]
 LABEL containers.bootc 1
 RUN bootc container lint
