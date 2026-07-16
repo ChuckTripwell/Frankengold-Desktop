@@ -95,6 +95,8 @@ RUN sed -i 's/active = yes/active = no/' /etc/audit/plugins.d/sedispatch.conf
 RUN dnf5 -y install --allowerasing mokutil sbsigntools
 
 # :::::: cleanup :::::: 
+RUN rm -rf /ctx
+
 RUN dnf5 clean all && \
     rpm-ostree cleanup -m && \
     rm -rf /var/cache/dnf/* /var/cache/rpm-ostree/* /var/tmp/* /tmp/*
