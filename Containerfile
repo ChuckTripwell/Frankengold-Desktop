@@ -1,7 +1,7 @@
 ##################################################################################################################################################
 ### :::::: Pull CachyOS :::::: ###
 ##################################################################################################################################################
-FROM docker.io/cachyos/cachyos-v3:latest AS cachyos
+FROM docker.io/pkgforge/cachyos-base:x86_64 AS cachyos
 
 # :::::: prepare the kernel :::::: 
 RUN rm -rf /lib/modules/*
@@ -15,7 +15,7 @@ RUN pacman -S --disable-sandbox --noconfirm linux-cachyos-rc-nvidia-open linux-c
 ### :::::: Pull Ublue-OS :::::: ###
 ##################################################################################################################################################
 #FROM ghcr.io/ublue-os/bazzite-nvidia-open:testing
-FROM xlioncontainermirror/bazzite-nvidia-stable:latest
+FROM docker.io/xlioncontainermirror/bazzite-nvidia-stable:latest
 
 # :::::: forcefully remove and replace kernel :::::: 
 RUN rm -rf /lib/modules/*
