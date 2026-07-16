@@ -96,7 +96,7 @@ RUN dnf5 -y install --allowerasing mokutil sbsigntools
 
 # :::::: cleanup :::::: 
 RUN rm -rf /ctx
-
+RUN rm -rf /workspace
 RUN dnf5 clean all && \
     rpm-ostree cleanup -m && \
     rm -rf /var/cache/dnf/* /var/cache/rpm-ostree/* /var/tmp/* /tmp/*
