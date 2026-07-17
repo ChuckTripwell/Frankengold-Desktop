@@ -106,16 +106,28 @@ jobs:
       - name: Sign kernel files inside container memory
         shell: bash
         env:
-          KERNEL_SECRET: ${{ secrets.KERNEL_SECRET }}
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
           DEFAULT_TAG: ${{ env.DEFAULT_TAG }}
         run: |
           working_container=$(sudo -E buildah from "$IMAGE_NAME:$DEFAULT_TAG")
           mnt=$(sudo -E buildah mount "$working_container")
+          
+          # Safely write the raw secret directly into the mounted filesystem 
+          # before chrooting, avoiding shell parsing issues.
+          sudo mkdir -p "$mnt/tmp"
+          cat << 'EOF' > secret.key
+          ${{ secrets.KERNEL_SECRET }}
+          EOF
+          sudo mv secret.key "$mnt/tmp/KERNEL_SECRET_RAW"
+          
           sudo mkdir -p "$mnt/workspace"
           sudo mount --bind "$GITHUB_WORKSPACE" "$mnt/workspace"
-          sudo -E KERNEL_SECRET="$KERNEL_SECRET" chroot "$mnt" bash /workspace/build_files/sign-kernel.sh
+          
+          # Override script extraction by feeding it the raw file directly
+          sudo -E KERNEL_SECRET="$(sudo cat $mnt/tmp/KERNEL_SECRET_RAW)" chroot "$mnt" bash /workspace/build_files/sign-kernel.sh
+          
           sudo umount -l "$mnt/workspace"
+          sudo rm -f "$mnt/tmp/KERNEL_SECRET_RAW"
           sudo -E buildah unmount "$working_container"
           sudo -E buildah commit --rm "$working_container" "$IMAGE_NAME:$DEFAULT_TAG"
           
