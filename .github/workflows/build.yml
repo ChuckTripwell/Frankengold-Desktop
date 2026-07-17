@@ -67,25 +67,20 @@ jobs:
           echo "IMAGE_NAME=${IMAGE_NAME,,}" >> ${GITHUB_ENV}
 
       # This actually builds the container image
-      - name: Build and push container image
-        uses: blue-build/github-action@v1
+      - name: Build Image
+        id: build_image
+        uses: redhat-actions/buildah-build@7a95fa7ee0f02d552a32753e7414641a04307056 # v2
         with:
-          recipe: 'recipe.yml'
-          cli_version: 'latest'
-          build_opts: '--no-sign'
-          registry_token: ${{ secrets.GITHUB_TOKEN }}
-          registry_username: ${{ github.repository_owner }}
-          registry: ghcr.io
-        env:
-          BLUEBUILD_SKIP_KEY_MANAGEMENT: true
+          containerfiles: |
+            ./Containerfile
 
       # This is optional, this provides smaller delta updates
-      - name: Rechunk with rpm-ostree
-        id: rechunk
-        run: |
-          sudo -E $(command -v just) ostree-rechunk \
-            ${IMAGE_NAME} \
-            ${DEFAULT_TAG}
+     # - name: Rechunk with rpm-ostree
+     #   id: rechunk
+     #   run: |
+     #     sudo -E $(command -v just) ostree-rechunk \
+     #       ${IMAGE_NAME} \
+     #       ${DEFAULT_TAG}
 
       # If you are feeling adventurous, use the new distro agnostic rechunker
       # https://github.com/coreos/chunkah
