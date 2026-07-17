@@ -109,8 +109,6 @@ build $target_image=image_name $tag=default_tag:
         LABELS+=("--label" "org.opencontainers.image.version={{ default_tag }}.$(date +%Y%m%d)-${GIT_SHA}")
     fi
 
-    # Image metadata for https://artifacthub.io/ - This is optional but is highly recommended so we all can get a index of all the custom images
-    # The metadata by itself is not going to do anything, you choose if you want your image to be on ArtifactHub or not.
     LABELS+=("--label" "io.artifacthub.package.deprecated=false")
     LABELS+=("--label" "io.artifacthub.package.keywords={{ image_keywords }}")
     LABELS+=("--label" "io.artifacthub.package.license=Apache-2.0")
@@ -121,8 +119,19 @@ build $target_image=image_name $tag=default_tag:
     LABELS+=("--label" "org.opencontainers.image.title={{ image_name }}")
     LABELS+=("--label" "org.opencontainers.image.vendor={{ repo_organization }}")
 
-    # This actually builds the image!
-    PODMAN_BUILD_ARGS=("${BUILD_ARGS[@]}" "${LABELS[@]}" --pull=newer --tag "${target_image}:${tag}" --file Containerfile)
+    # Speeds up builds by utilizing OCI registry cache endpoints
+    CACHE_REPO="ghcr.io/{{ repo_organization }}/{{ image_name }}-cache:latest"
+
+    PODMAN_BUILD_ARGS=(
+        "${BUILD_ARGS[@]}" 
+        "${LABELS[@]}" 
+        --pull=newer 
+        --layers
+        --cache-to="docker://${CACHE_REPO}"
+        --cache-from="docker://${CACHE_REPO}"
+        --tag "${target_image}:${tag}" 
+        --file Containerfile
+    )
 
     podman build "${PODMAN_BUILD_ARGS[@]}" .
 
