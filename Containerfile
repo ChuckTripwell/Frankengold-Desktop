@@ -118,10 +118,6 @@ RUN printf "systemdsystemconfdir=/etc/systemd/system\nsystemdsystemunitdir=/usr/
       sh -c 'export KERNEL_VERSION="$(basename "$(find /usr/lib/modules -maxdepth 1 -type d | grep -v -E "*.img" | tail -n 1)")" && \
       dracut --force --no-hostonly --reproducible --zstd --verbose --kver "$KERNEL_VERSION"  "/usr/lib/modules/$KERNEL_VERSION/initramfs.img"'
 
-RUN --mount=type=secret,id=KERNEL_SECRET,env=KERNEL_SECRET \
-    --mount=type=bind,source=./build_files/sign-kernel.sh,target=/tmp/sign-kernel.sh \
-    bash /tmp/sign-kernel.sh
-
 #  :::::: finish :::::: 
 RUN rm -rf /usr/etc
 LABEL containers.bootc 1
