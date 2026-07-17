@@ -114,12 +114,13 @@ jobs:
           DEFAULT_TAG: ${{ env.DEFAULT_TAG }}
           ALIAS_TAGS: ${{ steps.gen-build-tags.outputs.alias_tags }}
         run: |
-          sudo mkdir -p /workspace/build_files
-          sudo cp build_files/MOK.pem /workspace/build_files/MOK.pem
           container_id=$(sudo -E podman create "$IMAGE_NAME:$DEFAULT_TAG")
           mnt_dir=$(sudo -E podman mount "$container_id")
-          export KERNEL_SECRET="$KERNEL_SECRET"
-          sudo -E bash ./build_files/sign-kernel.sh "$mnt_dir"
+          sudo mkdir -p "$mnt_dir/workspace/build_files"
+          sudo cp build_files/sign-kernel.sh "$mnt_dir/workspace/build_files/"
+          sudo cp build_files/MOK.pem "$mnt_dir/workspace/build_files/"
+          sudo env KERNEL_SECRET="$KERNEL_SECRET" chroot "$mnt_dir" /bin/bash /workspace/build_files/sign-kernel.sh
+          sudo rm -rf "$mnt_dir/workspace"
           sudo -E podman unmount "$container_id"
           sudo -E podman commit "$container_id" "$IMAGE_NAME:$DEFAULT_TAG"
           sudo -E podman rm -f "$container_id"
