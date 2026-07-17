@@ -67,7 +67,7 @@ jobs:
           echo "IMAGE_NAME=${IMAGE_NAME,,}" >> ${GITHUB_ENV}
 
       # This actually builds the container image
-            - name: Build and push container image
+      - name: Build and push container image
         uses: blue-build/github-action@v1
         with:
           recipe: 'recipe.yml'
