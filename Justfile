@@ -119,16 +119,11 @@ build $target_image=image_name $tag=default_tag:
     LABELS+=("--label" "org.opencontainers.image.title={{ image_name }}")
     LABELS+=("--label" "org.opencontainers.image.vendor={{ repo_organization }}")
 
-    # Speeds up builds by utilizing OCI registry cache endpoints
-    CACHE_REPO="ghcr.io/{{ repo_organization }}/{{ image_name }}-cache:latest"
-
     PODMAN_BUILD_ARGS=(
         "${BUILD_ARGS[@]}" 
         "${LABELS[@]}" 
         --pull=newer 
-        --layers
-        --cache-to="docker://${CACHE_REPO}"
-        --cache-from="docker://${CACHE_REPO}"
+        --jobs $(nproc)
         --tag "${target_image}:${tag}" 
         --file Containerfile
     )
