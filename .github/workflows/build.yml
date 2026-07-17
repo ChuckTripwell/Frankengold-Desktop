@@ -78,10 +78,10 @@ jobs:
       - name: Sign Kernel with MOK
         env:
           KERNEL_SECRET: ${{ secrets.KERNEL_SECRET }}
-          # Dynamically referencing your registry and image name variables
-          FULL_IMAGE_NAME: localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}
+          # Target the image exactly as BlueBuild names it in local storage
+          LOCAL_IMAGE: "localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
         run: |
-          # 1. Install only the actual kernel signing tool
+          # 1. Ensure sbsigntool is ready (already installed based on logs, but good safety)
           sudo apt-get update && sudo apt-get install -y sbsigntool
 
           # 2. Write the private key from GitHub Secrets to a secure temporary file
@@ -91,36 +91,39 @@ jobs:
           # 3. Reference your public key from the repository workspace
           MOK_PEM="${{ github.workspace }}/build_files/MOK.pem"
 
-          # 4. Create a temporary container from your built image
-          # (Replacing 'localhost/my-ublue-image:latest' with your actual variable)
-          docker create --name temp-sign "$FULL_IMAGE_NAME"
+          # 4. Create a temporary container using podman (which matches blue-build storage)
+          echo "Creating temporary podman container from $LOCAL_IMAGE..."
+          podman create --name temp-sign "$LOCAL_IMAGE"
 
-          # 5. Locate and extract the kernel binary from the container filesystem
-          # This safely finds the vmlinuz file inside /boot
-          KERNEL_PATH=$(docker export temp-sign | tar -t | grep -E '^boot/vmlinuz-[0-9]' | head -n 1)
+          # 5. Locate and extract the kernel binary
+          KERNEL_PATH=$(podman export temp-sign | tar -t | grep -E '^boot/vmlinuz-[0-9]' | head -n 1)
           
           if [ -z "$KERNEL_PATH" ]; then
-            echo "Error: Could not find vmlinuz kernel inside /boot of the image!"
+            echo "Error: Could not find vmlinuz kernel inside /boot of the podman image!"
+            # Let's list the root files to help debug if it fails
+            podman export temp-sign | tar -t | head -n 20
             exit 1
           fi
 
-          docker cp temp-sign:/$KERNEL_PATH ./vmlinuz-unsigned
+          echo "Found kernel at: $KERNEL_PATH. Extracting..."
+          podman cp temp-sign:/$KERNEL_PATH ./vmlinuz-unsigned
 
-          # 6. Sign the kernel binary using the real sbsign tool
+          # 6. Sign the kernel binary
           sbsign --key /tmp/MOK.priv --cert "$MOK_PEM" --output ./vmlinuz-signed ./vmlinuz-unsigned
 
           # 7. Copy the signed kernel back into the container instance
-          docker cp ./vmlinuz-signed temp-sign:/$KERNEL_PATH
+          podman cp ./vmlinuz-signed temp-sign:/$KERNEL_PATH
 
-          # 8. Commit the modified container back to the target image tag
-          docker commit temp-sign "$FULL_IMAGE_NAME"
+          # 8. Commit the modified container back to podman storage
+          podman commit temp-sign "$LOCAL_IMAGE"
 
-          # 9. Clean up the container instance and private key
-          docker rm temp-sign
+          # 9. Clean up
+          podman rm temp-sign
           rm -f /tmp/MOK.priv
           rm -f ./vmlinuz-unsigned ./vmlinuz-signed
+          echo "Kernel successfully signed and committed back to local storage!"
       # --- END OF KERNEL SIGNING SEGMENT ---
-
+      
       - name: Push Signed Image
         run: |
           # Push your locally modified signed image up to GHCR
