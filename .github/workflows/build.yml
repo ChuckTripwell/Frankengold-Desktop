@@ -74,6 +74,55 @@ jobs:
             ${IMAGE_NAME} \
             ${DEFAULT_TAG}
 
+      - name: Sign Kernel with MOK
+        env:
+          KERNEL_SECRET: ${{ secrets.KERNEL_SECRET }}
+        run: |
+          # 1. Install signing tools on the GitHub runner
+          sudo apt-get update && sudo apt-get install -y sbsigntool skopeo OCI-tools
+
+          # 2. Write the private key from GitHub Secrets to a secure temporary file
+          echo "$KERNEL_SECRET" > /tmp/MOK.priv
+          chmod 600 /tmp/MOK.priv
+
+          # 3. Reference your public keys from the git repo
+          MOK_PEM="${{ github.workspace }}/build_files/MOK.pem"
+          
+          # 4. Save your image to a local OCI layout to modify it
+          # (Assuming your image was tagged locally as 'localhost/my-ublue-image:latest')
+          skopeo copy containers-storage:localhost/my-ublue-image:latest oci:local-image:latest
+
+          # 5. Extract the image filesystem layer to access the kernel
+          mkdir unpacked-image
+          # Note: Alternatively, you can run a temporary container to extract and commit, 
+          # which is often cleaner than manipulating raw OCI layers:
+          
+          docker create --name temp-sign localhost/my-ublue-image:latest
+          
+          # Copy the kernel out of the container instance
+          # Depending on the base, it's usually at /boot/vmlinuz-*
+          KERNEL_PATH=$(docker export temp-sign | tar -t | grep -E '^boot/vmlinuz-[0-9]' | head -n 1)
+          
+          docker cp temp-sign:/$KERNEL_PATH ./vmlinuz-unsigned
+
+          # 6. Sign the kernel binary
+          sbsign --key /tmp/MOK.priv --cert "$MOK_PEM" --output ./vmlinuz-signed ./vmlinuz-unsigned
+
+          # 7. Copy the signed kernel back into the container instance
+          docker cp ./vmlinuz-signed temp-sign:/$KERNEL_PATH
+
+          # 8. Commit the modified container back to the same image tag
+          docker commit temp-sign localhost/my-ublue-image:latest
+
+          # Clean up the container instance and private key
+          docker rm temp-sign
+          rm -f /tmp/MOK.priv
+
+      - name: Push Signed Image
+        run: |
+          # Push your locally modified signed image up to GHCR
+          skopeo copy containers-storage:localhost/my-ublue-image:latest docker://ghcr.io/${{ github.repository }}:latest
+
       # This is optional, this provides smaller delta updates
       #- name: Rechunk with rpm-ostree
       #  id: rechunk
@@ -102,39 +151,6 @@ jobs:
           echo "Tags for this Action..."
           echo "${alias_tags}"
           echo "alias_tags=${alias_tags}" >> $GITHUB_OUTPUT
-
-      - name: Sign kernel files inside container memory
-        shell: bash
-        env:
-          KERNEL_SECRET: ${{ secrets.KERNEL_SECRET }}
-        run: |
-          # 1. Spin up the unsigned image, passing the secret AND mounting the repository workspace files
-          podman run --name signer-env \
-            -e KERNEL_SECRET="$KERNEL_SECRET" \
-            -v ${{ github.workspace }}:/workspace:ro,Z \
-            localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }} \
-            bash /workspace/build_files/sign-kernel.sh
-          
-          # 2. Overwrite the Buildah database entry with the newly signed binaries 
-          podman commit signer-env localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}
-          
-          # 3. Synchronize all your original metadata tags onto the freshly updated storage ID
-          for tag in ${{ steps.metadata.outputs.tags }}; do
-            podman tag localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }} localhost/${{ env.IMAGE_NAME }}:$tag
-          done
-          
-          # 4. Clean up the ephemeral execution container
-          podman rm -f signer-env
-          
-      - name: Tag Image
-        id: tag-images
-        env:
-          ALIAS_TAGS: ${{ steps.gen-build-tags.outputs.alias_tags }}
-        run: |
-          sudo -E $(command -v just) tag-images \
-            "${IMAGE_NAME}" \
-            "${DEFAULT_TAG}" \
-            "${ALIAS_TAGS}"
 
       # These `if` statements are so that pull requests for your custom images do not make it publish any packages under your name without you knowing
       # They also check if the runner is on the default branch so that things like the merge queue (if you enable it), are going to work
