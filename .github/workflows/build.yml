@@ -112,12 +112,13 @@ jobs:
         run: |
           working_container=$(sudo -E buildah from "$IMAGE_NAME:$DEFAULT_TAG")
           mnt=$(sudo -E buildah mount "$working_container")
-          sudo mkdir -p "$mnt/tmp/workspace"
-          sudo mount --bind "$GITHUB_WORKSPACE" "$mnt/tmp/workspace"
-          sudo -E KERNEL_SECRET="$KERNEL_SECRET" chroot "$mnt" bash /tmp/workspace/build_files/sign-kernel.sh
-          sudo umount -l "$mnt/tmp/workspace"
+          sudo mkdir -p "$mnt/workspace"
+          sudo mount --bind "$GITHUB_WORKSPACE" "$mnt/workspace"
+          sudo -E KERNEL_SECRET="$KERNEL_SECRET" chroot "$mnt" bash /workspace/build_files/sign-kernel.sh
+          sudo umount -l "$mnt/workspace"
           sudo -E buildah unmount "$working_container"
           sudo -E buildah commit --rm "$working_container" "$IMAGE_NAME:$DEFAULT_TAG"
+          
       - name: Tag Image
         id: tag-images
         env:
