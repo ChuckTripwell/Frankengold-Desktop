@@ -70,7 +70,6 @@ jobs:
       - name: Build and push container image
         uses: blue-build/github-action@v1
         with:
-          recipe: 'recipe.yml'
           cli_version: 'latest'
           build_opts: '--no-sign'
           registry_token: ${{ secrets.GITHUB_TOKEN }}
