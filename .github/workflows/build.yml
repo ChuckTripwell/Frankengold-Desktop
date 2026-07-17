@@ -67,18 +67,17 @@ jobs:
           echo "IMAGE_NAME=${IMAGE_NAME,,}" >> ${GITHUB_ENV}
 
       # This actually builds the container image
-      - name: Build Image
-        id: build-image
-        run: |
-          sudo -E $(command -v just) build \
-            ${IMAGE_NAME} \
-            ${DEFAULT_TAG}
-
-      - name: Prune all unused build layers
-        run: |
-          echo "Pruning intermediate build layers before rechunking..."
-          sudo podman image prune -a -f
-          sudo podman system prune --all --volumes -f
+            - name: Build and push container image
+        uses: blue-build/github-action@v1
+        with:
+          recipe: 'recipe.yml'
+          cli_version: 'latest'
+          build_opts: '--no-sign'
+          registry_token: ${{ secrets.GITHUB_TOKEN }}
+          registry_username: ${{ github.repository_owner }}
+          registry: ghcr.io
+        env:
+          BLUEBUILD_SKIP_KEY_MANAGEMENT: true
 
       # This is optional, this provides smaller delta updates
       - name: Rechunk with rpm-ostree
