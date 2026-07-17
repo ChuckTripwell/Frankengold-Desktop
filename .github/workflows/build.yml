@@ -70,6 +70,9 @@ jobs:
       - name: Build Image
         id: build-image
         run: |
+          # Pass the GitHub secret securely as an environment-sourced build secret
+          export KERNEL_SECRET="${{ secrets.KERNEL_SECRET }}"
+          
           sudo -E $(command -v just) build \
             ${IMAGE_NAME} \
             ${DEFAULT_TAG}
@@ -102,6 +105,37 @@ jobs:
           echo "Tags for this Action..."
           echo "${alias_tags}"
           echo "alias_tags=${alias_tags}" >> $GITHUB_OUTPUT
+
+      - name: Sign kernel files inside container memory
+        shell: bash
+        env:
+          KERNEL_SECRET: ${{ secrets.KERNEL_SECRET }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          DEFAULT_TAG: ${{ env.DEFAULT_TAG }}
+          ALIAS_TAGS: ${{ steps.gen-build-tags.outputs.alias_tags }}
+        run: |
+          # 1. Create a working container from the image without running it
+          container_id=$(sudo -E podman create "$IMAGE_NAME:$DEFAULT_TAG")
+          
+          # 2. Mount the container's root filesystem to the host
+          mnt_dir=$(sudo -E podman mount "$container_id")
+          
+          # 3. Run the signing script directly against the mounted filesystem
+          # We pass the mount directory to the script so it knows where to find the files
+          export KERNEL_SECRET="$KERNEL_SECRET"
+          sudo -E bash ./build_files/sign-kernel.sh "$mnt_dir"
+          
+          # 4. Unmount and commit only the direct filesystem changes (much smaller/cleaner)
+          sudo -E podman unmount "$container_id"
+          sudo -E podman commit "$container_id" "$IMAGE_NAME:$DEFAULT_TAG"
+          
+          # 5. Clean up the temporary container
+          sudo -E podman rm -f "$container_id"
+          
+          # 6. Apply alias tags
+          for tag in ${ALIAS_TAGS}; do
+            sudo -E podman tag "$IMAGE_NAME:$DEFAULT_TAG" "$IMAGE_NAME:$tag"
+          done
 
       - name: Tag Image
         id: tag-images
