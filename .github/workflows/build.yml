@@ -74,6 +74,12 @@ jobs:
             ${IMAGE_NAME} \
             ${DEFAULT_TAG}
 
+      - name: Prune all unused build layers
+        run: |
+          echo "Pruning intermediate build layers before rechunking..."
+          sudo podman image prune -a -f
+          sudo podman system prune --all --volumes -f
+
       # This is optional, this provides smaller delta updates
       - name: Rechunk with rpm-ostree
         id: rechunk
