@@ -14,8 +14,7 @@ RUN pacman -S --disable-sandbox --noconfirm linux-cachyos-rc-nvidia-open linux-c
 ##################################################################################################################################################
 ### :::::: Pull Ublue-OS :::::: ###
 ##################################################################################################################################################
-#FROM ghcr.io/ublue-os/bazzite-nvidia-open:testing
-FROM docker.io/xlioncontainermirror/bazzite-nvidia-stable:latest
+FROM ghcr.io/ublue-os/bazzite-nvidia-open:testing
 
 # :::::: forcefully remove and replace kernel :::::: 
 RUN rm -rf /lib/modules/*
