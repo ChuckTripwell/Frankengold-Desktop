@@ -108,15 +108,21 @@ jobs:
         env:
           KERNEL_SECRET: ${{ secrets.KERNEL_SECRET }}
         run: |
-          container=$(buildah from localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }})
-          mountpoint=$(buildah mount "$container")
-          buildah run \
+          # 1. Spin up the container exactly like before
+          podman run --name signer-env \
             -e KERNEL_SECRET="$KERNEL_SECRET" \
             -v ${{ github.workspace }}:/workspace:ro,Z \
-            "$container" -- bash /workspace/build_files/sign-kernel.sh
-          buildah commit "$container" localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}
-          buildah unmount "$container"
-          buildah rm "$container"
+            localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }} \
+            bash /workspace/build_files/sign-kernel.sh
+          
+          # 2. Overwrite the entry using --squash to prevent the image from ballooning
+          podman commit --squash signer-env localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}
+          
+          # 3. IMMEDIATELY delete the temporary container to free up the 11GB scratchpad space
+          podman rm -f signer-env
+          podman system prune -f
+          
+          # 4. Synchronize all your original metadata tags
           for tag in ${{ steps.metadata.outputs.tags }}; do
             podman tag localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }} localhost/${{ env.IMAGE_NAME }}:$tag
           done
