@@ -78,10 +78,10 @@ jobs:
       - name: Sign Kernel with MOK
         env:
           KERNEL_SECRET: ${{ secrets.KERNEL_SECRET }}
-          # Target the image exactly as BlueBuild names it in local storage
-          LOCAL_IMAGE: "localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
+          # Builds your real target path: ghcr.io/chucktripwell/frankengold-desktop:latest
+          GHCR_IMAGE: "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
         run: |
-          # 1. Ensure sbsigntool is ready (already installed based on logs, but good safety)
+          # 1. Install sbsigntool
           sudo apt-get update && sudo apt-get install -y sbsigntool
 
           # 2. Write the private key from GitHub Secrets to a secure temporary file
@@ -91,37 +91,46 @@ jobs:
           # 3. Reference your public key from the repository workspace
           MOK_PEM="${{ github.workspace }}/build_files/MOK.pem"
 
-          # 4. Create a temporary container using podman (which matches blue-build storage)
-          echo "Creating temporary podman container from $LOCAL_IMAGE..."
-          podman create --name temp-sign "$LOCAL_IMAGE"
+          # 4. Authenticate Docker against your GitHub Container Registry
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-          # 5. Locate and extract the kernel binary
-          KERNEL_PATH=$(podman export temp-sign | tar -t | grep -E '^boot/vmlinuz-[0-9]' | head -n 1)
+          # 5. Pull the freshly compiled image from GHCR
+          echo "Pulling image for modification: $GHCR_IMAGE"
+          docker pull "$GHCR_IMAGE"
+
+          # 6. Create a temporary container container instance
+          docker create --name temp-sign "$GHCR_IMAGE"
+
+          # 7. Locate and extract the kernel binary from /boot
+          KERNEL_PATH=$(docker export temp-sign | tar -t | grep -E '^boot/vmlinuz-[0-9]' | head -n 1)
           
           if [ -z "$KERNEL_PATH" ]; then
-            echo "Error: Could not find vmlinuz kernel inside /boot of the podman image!"
-            # Let's list the root files to help debug if it fails
-            podman export temp-sign | tar -t | head -n 20
+            echo "Error: Could not find vmlinuz kernel inside /boot of the image!"
+            docker rm temp-sign
             exit 1
           fi
 
           echo "Found kernel at: $KERNEL_PATH. Extracting..."
-          podman cp temp-sign:/$KERNEL_PATH ./vmlinuz-unsigned
+          docker cp temp-sign:/$KERNEL_PATH ./vmlinuz-unsigned
 
-          # 6. Sign the kernel binary
+          # 8. Sign the kernel binary using the local MOK keys
           sbsign --key /tmp/MOK.priv --cert "$MOK_PEM" --output ./vmlinuz-signed ./vmlinuz-unsigned
 
-          # 7. Copy the signed kernel back into the container instance
-          podman cp ./vmlinuz-signed temp-sign:/$KERNEL_PATH
+          # 9. Copy the signed kernel back into the container instance
+          docker cp ./vmlinuz-signed temp-sign:/$KERNEL_PATH
 
-          # 8. Commit the modified container back to podman storage
-          podman commit temp-sign "$LOCAL_IMAGE"
+          # 10. Commit the modified container back to the same tag
+          docker commit temp-sign "$GHCR_IMAGE"
 
-          # 9. Clean up
-          podman rm temp-sign
+          # 11. Overwrite the registry image with the signed version
+          echo "Pushing signed image back to GHCR..."
+          docker push "$GHCR_IMAGE"
+
+          # 12. Clean up local runner files
+          docker rm temp-sign
           rm -f /tmp/MOK.priv
           rm -f ./vmlinuz-unsigned ./vmlinuz-signed
-          echo "Kernel successfully signed and committed back to local storage!"
+          echo "Kernel successfully signed and updated in place on GHCR!"
       # --- END OF KERNEL SIGNING SEGMENT ---
       
       - name: Push Signed Image
