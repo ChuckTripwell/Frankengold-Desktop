@@ -114,7 +114,10 @@ jobs:
           mnt=$(sudo -E buildah mount "$working_container")
           sudo mkdir -p "$mnt/workspace"
           sudo mount --bind "$GITHUB_WORKSPACE" "$mnt/workspace"
-          sudo -E KERNEL_SECRET="$KERNEL_SECRET" chroot "$mnt" bash /workspace/build_files/sign-kernel.sh
+          printf '%s' "$KERNEL_SECRET" > secret.tmp
+          sudo mv secret.tmp "$mnt/tmp/ksecret"
+          sudo chroot "$mnt" bash -c 'KERNEL_SECRET=$(cat /tmp/ksecret) bash /workspace/build_files/sign-kernel.sh'
+          sudo rm -f "$mnt/tmp/ksecret"
           sudo umount -l "$mnt/workspace"
           sudo -E buildah unmount "$working_container"
           sudo -E buildah commit --rm "$working_container" "$IMAGE_NAME:$DEFAULT_TAG"
