@@ -106,21 +106,20 @@ jobs:
       - name: Sign kernel files inside container memory
         shell: bash
         env:
-          IMAGE_NAME: ${{ env.IMAGE_NAME }}
-          DEFAULT_TAG: ${{ env.DEFAULT_TAG }}
           KERNEL_SECRET: ${{ secrets.KERNEL_SECRET }}
         run: |
-          working_container=$(sudo -E buildah from "$IMAGE_NAME:$DEFAULT_TAG")
-          mnt=$(sudo -E buildah mount "$working_container")
-          sudo mkdir -p "$mnt/workspace"
-          sudo mount --bind "$GITHUB_WORKSPACE" "$mnt/workspace"
-          printf '%s' "$KERNEL_SECRET" > secret.tmp
-          sudo mv secret.tmp "$mnt/tmp/ksecret"
-          sudo chroot "$mnt" bash -c 'KERNEL_SECRET=$(cat /tmp/ksecret) bash /workspace/build_files/sign-kernel.sh'
-          sudo rm -f "$mnt/tmp/ksecret"
-          sudo umount -l "$mnt/workspace"
-          sudo -E buildah unmount "$working_container"
-          sudo -E buildah commit --rm "$working_container" "$IMAGE_NAME:$DEFAULT_TAG"
+          container=$(buildah from localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }})
+          mountpoint=$(buildah mount "$container")
+          buildah run \
+            -e KERNEL_SECRET="$KERNEL_SECRET" \
+            -v ${{ github.workspace }}:/workspace:ro,Z \
+            "$container" -- bash /workspace/build_files/sign-kernel.sh
+          buildah commit "$container" localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}
+          buildah unmount "$container"
+          buildah rm "$container"
+          for tag in ${{ steps.metadata.outputs.tags }}; do
+            podman tag localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }} localhost/${{ env.IMAGE_NAME }}:$tag
+          done
           
       - name: Tag Image
         id: tag-images
