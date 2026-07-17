@@ -102,7 +102,7 @@ jobs:
           echo "Tags for this Action..."
           echo "${alias_tags}"
           echo "alias_tags=${alias_tags}" >> $GITHUB_OUTPUT
-          
+
       - name: Sign kernel files inside container memory
         shell: bash
         env:
