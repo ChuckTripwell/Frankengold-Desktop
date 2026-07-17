@@ -110,11 +110,12 @@ jobs:
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
           DEFAULT_TAG: ${{ env.DEFAULT_TAG }}
         run: |
-          sudo ln -s "$GITHUB_WORKSPACE" /workspace
           mnt=$(sudo -E podman image mount "$IMAGE_NAME:$DEFAULT_TAG")
-          sudo -E KERNEL_SECRET="$KERNEL_SECRET" bash /workspace/build_files/sign-kernel.sh "$mnt"
+          sudo mkdir -p "$mnt/workspace"
+          sudo mount --bind "$GITHUB_WORKSPACE" "$mnt/workspace"
+          sudo -E chroot "$mnt" bash /workspace/build_files/sign-kernel.sh
+          sudo umount "$mnt/workspace"
           sudo -E podman image unmount "$IMAGE_NAME:$DEFAULT_TAG"
-          sudo rm /workspace
 
       - name: Tag Image
         id: tag-images
