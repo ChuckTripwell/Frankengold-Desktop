@@ -74,49 +74,52 @@ jobs:
             ${IMAGE_NAME} \
             ${DEFAULT_TAG}
 
+# --- START OF KERNEL SIGNING SEGMENT ---
       - name: Sign Kernel with MOK
         env:
           KERNEL_SECRET: ${{ secrets.KERNEL_SECRET }}
+          # Dynamically referencing your registry and image name variables
+          FULL_IMAGE_NAME: localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}
         run: |
-          # 1. Install signing tools on the GitHub runner
-          sudo apt-get update && sudo apt-get install -y sbsigntool skopeo OCI-tools
+          # 1. Install only the actual kernel signing tool
+          sudo apt-get update && sudo apt-get install -y sbsigntool
 
           # 2. Write the private key from GitHub Secrets to a secure temporary file
           echo "$KERNEL_SECRET" > /tmp/MOK.priv
           chmod 600 /tmp/MOK.priv
 
-          # 3. Reference your public keys from the git repo
+          # 3. Reference your public key from the repository workspace
           MOK_PEM="${{ github.workspace }}/build_files/MOK.pem"
-          
-          # 4. Save your image to a local OCI layout to modify it
-          # (Assuming your image was tagged locally as 'localhost/my-ublue-image:latest')
-          skopeo copy containers-storage:localhost/my-ublue-image:latest oci:local-image:latest
 
-          # 5. Extract the image filesystem layer to access the kernel
-          mkdir unpacked-image
-          # Note: Alternatively, you can run a temporary container to extract and commit, 
-          # which is often cleaner than manipulating raw OCI layers:
-          
-          docker create --name temp-sign localhost/my-ublue-image:latest
-          
-          # Copy the kernel out of the container instance
-          # Depending on the base, it's usually at /boot/vmlinuz-*
+          # 4. Create a temporary container from your built image
+          # (Replacing 'localhost/my-ublue-image:latest' with your actual variable)
+          docker create --name temp-sign "$FULL_IMAGE_NAME"
+
+          # 5. Locate and extract the kernel binary from the container filesystem
+          # This safely finds the vmlinuz file inside /boot
           KERNEL_PATH=$(docker export temp-sign | tar -t | grep -E '^boot/vmlinuz-[0-9]' | head -n 1)
           
+          if [ -z "$KERNEL_PATH" ]; then
+            echo "Error: Could not find vmlinuz kernel inside /boot of the image!"
+            exit 1
+          fi
+
           docker cp temp-sign:/$KERNEL_PATH ./vmlinuz-unsigned
 
-          # 6. Sign the kernel binary
+          # 6. Sign the kernel binary using the real sbsign tool
           sbsign --key /tmp/MOK.priv --cert "$MOK_PEM" --output ./vmlinuz-signed ./vmlinuz-unsigned
 
           # 7. Copy the signed kernel back into the container instance
           docker cp ./vmlinuz-signed temp-sign:/$KERNEL_PATH
 
-          # 8. Commit the modified container back to the same image tag
-          docker commit temp-sign localhost/my-ublue-image:latest
+          # 8. Commit the modified container back to the target image tag
+          docker commit temp-sign "$FULL_IMAGE_NAME"
 
-          # Clean up the container instance and private key
+          # 9. Clean up the container instance and private key
           docker rm temp-sign
           rm -f /tmp/MOK.priv
+          rm -f ./vmlinuz-unsigned ./vmlinuz-signed
+      # --- END OF KERNEL SIGNING SEGMENT ---
 
       - name: Push Signed Image
         run: |
