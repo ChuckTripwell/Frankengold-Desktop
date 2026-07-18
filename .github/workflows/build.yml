@@ -101,13 +101,11 @@ jobs:
 
 
 
-
-   # --- START OF KERNEL SIGNING & PUSH SEGMENT ---
-      - name: Sign Kernel and Push to GHCR
+# --- START OF KERNEL SIGNING & OCI ARCHIVE SEGMENT ---
+      - name: Sign Kernel and Export to OCI Tarball
         env:
           KERNEL_SECRET: ${{ secrets.KERNEL_SECRET }}
           GHCR_IMAGE: "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
-          LOCAL_IMAGE: "localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
         run: |
           sudo apt-get update && sudo apt-get install -y sbsigntool
 
@@ -147,13 +145,19 @@ jobs:
 
           docker build -t "$GHCR_IMAGE" -f Patch.Dockerfile .
 
-          # Load the signed image from docker into podman containers-storage
-          skopeo copy docker-daemon:$GHCR_IMAGE containers-storage:$LOCAL_IMAGE
+          mkdir -p ./oci-archive
+          docker save "$GHCR_IMAGE" -o ./oci-archive/image.tar
 
           rm -f /tmp/MOK.priv
           rm -rf ./vmlinuz-unsigned ./patch Patch.Dockerfile
-          echo "Kernel successfully signed and updated in containers-storage!"
-      # --- END OF KERNEL SIGNING & PUSH SEGMENT ---
+          echo "Kernel successfully signed and exported to local archive!"
+      # --- END OF KERNEL SIGNING & OCI ARCHIVE SEGMENT ---
+
+      # --- START OF YOUR FINAL PUSH SEGMENT ---
+      - name: Push Signed Image to GHCR
+        run: |
+          skopeo copy --dest-creds="${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" docker-archive:./oci-archive/image.tar docker://ghcr.io/${{ github.repository }}:latest
+      # --- END OF YOUR FINAL PUSH SEGMENT ---
 
 
       
@@ -182,7 +186,8 @@ jobs:
       - name: Push Signed Image
         run: |
           # Push your locally modified signed image up to GHCR
-          skopeo copy containers-storage:localhost/my-ublue-image:latest docker://ghcr.io/${{ github.repository }}:latest
+          #skopeo copy containers-storage:localhost/my-ublue-image:latest docker://ghcr.io/${{ github.repository }}:latest
+          skopeo copy --dest-creds="${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" docker-archive:./oci-archive/image.tar docker://ghcr.io/${{ github.repository }}:latest
 
       # This is optional, this provides smaller delta updates
       #- name: Rechunk with rpm-ostree
