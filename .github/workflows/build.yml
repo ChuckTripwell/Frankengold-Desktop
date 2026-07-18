@@ -169,7 +169,7 @@ jobs:
       - name: Push Signed Image
         run: |
           # Push your locally modified signed image up to GHCR
-          skopeo copy containers-storage:localhost/my-ublue-image:latest docker://ghcr.io/${{ github.repository }}:latest
+          podman unshare skopeo copy containers-storage:localhost/my-ublue-image:latest docker://ghcr.io/${{ github.repository }}:latest
 
       # This is optional, this provides smaller delta updates
       #- name: Rechunk with rpm-ostree
