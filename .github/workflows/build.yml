@@ -100,12 +100,12 @@ jobs:
 
 
 
+
 # --- START OF KERNEL SIGNING SEGMENT ---
       - name: Sign Kernel with MOK
         env:
           KERNEL_SECRET: ${{ secrets.KERNEL_SECRET }}
           GHCR_IMAGE: "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
-          LOCAL_IMAGE: "localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
         run: |
           sudo apt-get update && sudo apt-get install -y sbsigntool
 
@@ -143,20 +143,28 @@ jobs:
 
           docker build -t "$GHCR_IMAGE" -f Patch.Dockerfile .
 
-          # Save it directly into sudo's podman containers-storage
-          docker save "$GHCR_IMAGE" | sudo podman load
+          # Feed the image stream out of Docker into rootless Podman storage
+          docker save "$GHCR_IMAGE" | podman load
 
           rm -f /tmp/MOK.priv
           rm -rf ./vmlinuz-unsigned ./patch Patch.Dockerfile
       # --- END OF KERNEL SIGNING SEGMENT ---
 
 
-      
 
 
 
 
-            
+
+
+
+
+
+
+
+
+
+
 # --- END OF KERNEL SIGNING SEGMENT ---
 
 
@@ -177,7 +185,7 @@ jobs:
       - name: Push Signed Image
         run: |
           # Push your locally modified signed image up to GHCR
-          sudo skopeo copy containers-storage:localhost/my-ublue-image:latest docker://ghcr.io/${{ github.repository }}:latest
+          skopeo copy containers-storage:localhost/my-ublue-image:latest docker://ghcr.io/${{ github.repository }}:latest
 
       # This is optional, this provides smaller delta updates
       #- name: Rechunk with rpm-ostree
