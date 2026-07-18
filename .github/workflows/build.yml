@@ -108,44 +108,28 @@ jobs:
           GHCR_IMAGE: "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
         run: |
           sudo apt-get update && sudo apt-get install -y sbsigntool
-
           echo "$KERNEL_SECRET" > /tmp/MOK.priv
           chmod 600 /tmp/MOK.priv
-
           MOK_PEM="${{ github.workspace }}/build_files/MOK.pem"
-
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-          docker pull "$GHCR_IMAGE"
-
-          docker create --name temp-sign "$GHCR_IMAGE"
-
-          KERNEL_PATH=$(docker export temp-sign | tar -t | grep -E '^usr/lib/modules/[^/]+/vmlinuz$' | head -n 1)
-          
+          echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u ${{ github.actor }} --password-stdin
+          podman unshare podman pull "$GHCR_IMAGE"
+          podman unshare podman create --name temp-sign "$GHCR_IMAGE"
+          KERNEL_PATH=$(podman unshare podman export temp-sign | tar -t | grep -E '^usr/lib/modules/[^/]+/vmlinuz$' | head -n 1)          
           if [ -z "$KERNEL_PATH" ]; then
             echo "Error: Could not find vmlinuz kernel inside /usr/lib/modules/ of the image!"
-            docker rm temp-sign
+            podman unshare podman rm temp-sign
             exit 1
           fi
-
-          docker cp temp-sign:/$KERNEL_PATH ./vmlinuz-unsigned
-          docker rm temp-sign
-
+          podman unshare podman cp temp-sign:/$KERNEL_PATH ./vmlinuz-unsigned
+          podman unshare podman rm temp-sign
           sbsign --key /tmp/MOK.priv --cert "$MOK_PEM" --output ./vmlinuz-signed ./vmlinuz-unsigned
-
           mkdir -p ./patch/$(dirname "$KERNEL_PATH")
           mv ./vmlinuz-signed ./patch/$KERNEL_PATH
-
           cat <<EOF > Patch.Dockerfile
           FROM $GHCR_IMAGE
           COPY ./patch/usr/ /usr/
           EOF
-
-          docker build -t "$GHCR_IMAGE" -f Patch.Dockerfile .
-
-          # Feed the image stream out of Docker into rootless Podman storage
-          docker save "$GHCR_IMAGE" | podman load
-
+          podman unshare podman build -t "localhost/my-ublue-image:latest" -f Patch.Dockerfile .
           rm -f /tmp/MOK.priv
           rm -rf ./vmlinuz-unsigned ./patch Patch.Dockerfile
       # --- END OF KERNEL SIGNING SEGMENT ---
