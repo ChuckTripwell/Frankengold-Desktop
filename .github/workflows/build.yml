@@ -100,12 +100,12 @@ jobs:
 
 
 
-
-# --- START OF KERNEL SIGNING & OCI ARCHIVE SEGMENT ---
-      - name: Sign Kernel and Export to OCI Tarball
+# --- START OF KERNEL SIGNING SEGMENT ---
+      - name: Sign Kernel with MOK
         env:
           KERNEL_SECRET: ${{ secrets.KERNEL_SECRET }}
           GHCR_IMAGE: "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
+          LOCAL_IMAGE: "localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
         run: |
           sudo apt-get update && sudo apt-get install -y sbsigntool
 
@@ -116,7 +116,6 @@ jobs:
 
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-          echo "Pulling image for modification: $GHCR_IMAGE"
           docker pull "$GHCR_IMAGE"
 
           docker create --name temp-sign "$GHCR_IMAGE"
@@ -129,7 +128,6 @@ jobs:
             exit 1
           fi
 
-          echo "Found kernel at: $KERNEL_PATH. Extracting..."
           docker cp temp-sign:/$KERNEL_PATH ./vmlinuz-unsigned
           docker rm temp-sign
 
@@ -145,19 +143,12 @@ jobs:
 
           docker build -t "$GHCR_IMAGE" -f Patch.Dockerfile .
 
-          mkdir -p ./oci-archive
-          docker save "$GHCR_IMAGE" -o ./oci-archive/image.tar
+          # Save it directly into sudo's podman containers-storage
+          docker save "$GHCR_IMAGE" | sudo podman load
 
           rm -f /tmp/MOK.priv
           rm -rf ./vmlinuz-unsigned ./patch Patch.Dockerfile
-          echo "Kernel successfully signed and exported to local archive!"
-      # --- END OF KERNEL SIGNING & OCI ARCHIVE SEGMENT ---
-
-      # --- START OF YOUR FINAL PUSH SEGMENT ---
-      - name: Push Signed Image to GHCR
-        run: |
-          skopeo copy --dest-creds="${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" docker-archive:./oci-archive/image.tar docker://ghcr.io/${{ github.repository }}:latest
-      # --- END OF YOUR FINAL PUSH SEGMENT ---
+      # --- END OF KERNEL SIGNING SEGMENT ---
 
 
       
@@ -186,8 +177,7 @@ jobs:
       - name: Push Signed Image
         run: |
           # Push your locally modified signed image up to GHCR
-          #skopeo copy containers-storage:localhost/my-ublue-image:latest docker://ghcr.io/${{ github.repository }}:latest
-          skopeo copy --dest-creds="${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" docker-archive:./oci-archive/image.tar docker://ghcr.io/${{ github.repository }}:latest
+          sudo skopeo copy containers-storage:localhost/my-ublue-image:latest docker://ghcr.io/${{ github.repository }}:latest
 
       # This is optional, this provides smaller delta updates
       #- name: Rechunk with rpm-ostree
