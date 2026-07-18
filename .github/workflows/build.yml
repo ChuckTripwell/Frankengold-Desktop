@@ -139,7 +139,7 @@ jobs:
           rm -f /tmp/MOK.priv
           rm -rf ./vmlinuz-unsigned ./patch Patch.Dockerfile
           
-          podman unshare skopeo copy containers-storage:localhost/my-ublue-image:latest "docker://${GHCR_IMAGE}"
+ #         podman unshare skopeo copy containers-storage:localhost/my-ublue-image:latest "docker://${GHCR_IMAGE}"
 
 
 
@@ -173,10 +173,12 @@ jobs:
 
 
       
-      #- name: Push Signed Image
-      #  run: |
-      #    # Push your locally modified signed image up to GHCR
-      #    podman unshare skopeo copy containers-storage:localhost/my-ublue-image:latest docker://ghcr.io/${{ github.repository }}:latest
+      - name: Push Signed Image
+        run: |
+          # Push your locally modified signed image up to GHCR
+          #podman unshare skopeo copy containers-storage:localhost/my-ublue-image:latest docker://ghcr.io/${{ github.repository }}:latest
+          podman unshare skopeo copy containers-storage:localhost/my-ublue-image:latest "docker://${GHCR_IMAGE}"
+
 
       # This is optional, this provides smaller delta updates
       #- name: Rechunk with rpm-ostree
