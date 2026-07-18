@@ -75,118 +75,31 @@ jobs:
             ${DEFAULT_TAG}
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# --- START OF KERNEL SIGNING SEGMENT ---
-
-
-
-
-
-
-
-      - name: Sign Kernel with MOK and Push to GHCR
+      
+      
+      
+      
+      
+      
+      
+      
+      - name: Sign Kernel Image
         env:
           KERNEL_SECRET: ${{ secrets.KERNEL_SECRET }}
-          IMAGE_REGISTRY: ${{ env.IMAGE_REGISTRY }}
-          IMAGE_NAME: ${{ env.IMAGE_NAME }}
-          DEFAULT_TAG: ${{ env.DEFAULT_TAG }}
         run: |
-          sudo apt-get update && sudo apt-get install -y sbsigntool
-          echo "$KERNEL_SECRET" > /tmp/MOK.priv
-          chmod 600 /tmp/MOK.priv
-          MOK_PEM="${{ github.workspace }}/build_files/MOK.pem"
-          
-          LOWCASE_REGISTRY=$(echo "${IMAGE_REGISTRY}" | tr '[:upper:]' '[:lower:]')
-          LOWCASE_NAME=$(echo "${IMAGE_NAME}" | tr '[:upper:]' '[:lower:]')
-          GHCR_IMAGE="${LOWCASE_REGISTRY}/${LOWCASE_NAME}:${DEFAULT_TAG}"
-          
-          echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u ${{ github.actor }} --password-stdin
-          podman unshare podman pull "$GHCR_IMAGE"
-          podman unshare podman create --name temp-sign "$GHCR_IMAGE"
-          KERNEL_PATH=$(podman unshare podman export temp-sign | tar -t | grep -E '^usr/lib/modules/[^/]+/vmlinuz$' | head -n 1)          
-          if [ -z "$KERNEL_PATH" ]; then
-            echo "Error: Could not find vmlinuz kernel inside /usr/lib/modules/ of the image!"
-            podman unshare podman rm temp-sign
-            exit 1
-          fi
-          podman unshare podman cp temp-sign:/$KERNEL_PATH ./vmlinuz-unsigned
-          podman unshare podman rm temp-sign
-          sbsign --key /tmp/MOK.priv --cert "$MOK_PEM" --output ./vmlinuz-signed ./vmlinuz-unsigned
-          mkdir -p ./patch/$(dirname "$KERNEL_PATH")
-          mv ./vmlinuz-signed ./patch/$KERNEL_PATH
-          cat <<EOF > Patch.Dockerfile
-          FROM $GHCR_IMAGE
-          COPY ./patch/usr/ /usr/
-          EOF
-          podman unshare podman build -t "localhost/my-ublue-image:latest" -f Patch.Dockerfile .
-          rm -f /tmp/MOK.priv
-          rm -rf ./vmlinuz-unsigned ./patch Patch.Dockerfile
-          
- #         podman unshare skopeo copy containers-storage:localhost/my-ublue-image:latest "docker://${GHCR_IMAGE}"
+          sudo podman run --entrypoint /bin/bash --name kernel-signer -v $PWD/build_files:/workspace/build_files:ro -e KERNEL_SECRET="${KERNEL_SECRET}" ${IMAGE_NAME}:${DEFAULT_TAG} /workspace/build_files/sign-kernel.sh
+          sudo podman commit kernel-signer ${IMAGE_NAME}:${DEFAULT_TAG}
+          sudo podman rm kernel-signer
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# --- END OF KERNEL SIGNING SEGMENT ---
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-      
-      - name: Push Signed Image
-        run: |
-          # Push your locally modified signed image up to GHCR
-          #podman unshare skopeo copy containers-storage:localhost/my-ublue-image:latest docker://ghcr.io/${{ github.repository }}:latest
-          podman unshare skopeo copy containers-storage:localhost/my-ublue-image:latest "docker://${GHCR_IMAGE}"
 
 
       # This is optional, this provides smaller delta updates
-      #- name: Rechunk with rpm-ostree
-      #  id: rechunk
-      #  run: |
-      #    sudo -E $(command -v just) ostree-rechunk \
-      #      ${IMAGE_NAME} \
-      #      ${DEFAULT_TAG}
+     # - name: Rechunk with rpm-ostree
+     #   id: rechunk
+     #   run: |
+     #     sudo -E $(command -v just) ostree-rechunk \
+     #       ${IMAGE_NAME} \
+     #       ${DEFAULT_TAG}
 
       # If you are feeling adventurous, use the new distro agnostic rechunker
       # https://github.com/coreos/chunkah
@@ -208,6 +121,16 @@ jobs:
           echo "Tags for this Action..."
           echo "${alias_tags}"
           echo "alias_tags=${alias_tags}" >> $GITHUB_OUTPUT
+
+      - name: Tag Image
+        id: tag-images
+        env:
+          ALIAS_TAGS: ${{ steps.gen-build-tags.outputs.alias_tags }}
+        run: |
+          sudo -E $(command -v just) tag-images \
+            "${IMAGE_NAME}" \
+            "${DEFAULT_TAG}" \
+            "${ALIAS_TAGS}"
 
       # These `if` statements are so that pull requests for your custom images do not make it publish any packages under your name without you knowing
       # They also check if the runner is on the default branch so that things like the merge queue (if you enable it), are going to work
