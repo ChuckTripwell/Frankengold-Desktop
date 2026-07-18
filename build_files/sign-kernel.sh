@@ -4,13 +4,12 @@ set -euo pipefail
 log() { echo "[custom-kernel] $*"; }
 error() { echo "[custom-kernel] Error: $*"; exit 1; }
 
-SECURE_TMP=$(mktemp -d -t MOK.XXXXXX)
-SIGNING_KEY="$SECURE_TMP/MOK.priv"
+SIGNING_KEY="/MOK.priv"
 SIGNING_CERT="/workspace/build_files/MOK.pem"
 MOK_CERT="/usr/share/cert/MOK.der"
 
 cleanup() {
-    rm -rf "$SECURE_TMP"
+    rm -f "$SIGNING_KEY"
 }
 trap cleanup EXIT
 
@@ -39,20 +38,26 @@ rm -f "$SIGNED_VMLINUZ"
 SIGN_FILE="$KERNEL_DIR/build/scripts/sign-file"
 [[ -x "$SIGN_FILE" ]] || error "sign-file missing or not executable"
 
-sign_worker() {
-    local mod="$1" sf="$2" key="$3" cert="$4" raw
+log "Signing modules..."
+find "$KERNEL_DIR" -type f \( -name "*.ko" -o -name "*.ko.xz" -o -name "*.ko.zst" -o -name "*.ko.gz" \) | while read -r mod; do
     case "$mod" in
-        *.ko)     "$sf" sha256 "$key" "$cert" "$mod" ;;
-        *.ko.xz)  raw="${mod%.xz}";  xz -d -q "$mod";       "$sf" sha256 "$key" "$cert" "$raw"; xz -z -q -T0 "$raw" ;;
-        *.ko.zst) raw="${mod%.zst}"; zstd -d -q --rm "$mod"; "$sf" sha256 "$key" "$cert" "$raw"; zstd -q -T0 --rm "$raw" ;;
-        *.ko.gz)  raw="${mod%.gz}";  gzip -d -q -f "$mod";  "$sf" sha256 "$key" "$cert" "$raw"; gzip -q -f "$raw" ;;
+        *.ko)
+            "$SIGN_FILE" sha256 "$SIGNING_KEY" "$SIGNING_CERT" "$mod"
+            ;;
+        *.ko.xz)
+            raw="${mod%.xz}"
+            xz -d -q "$mod" && "$SIGN_FILE" sha256 "$SIGNING_KEY" "$SIGNING_CERT" "$raw" && xz -z -q -T0 "$raw"
+            ;;
+        *.ko.zst)
+            raw="${mod%.zst}"
+            zstd -d -q --rm "$mod" && "$SIGN_FILE" sha256 "$SIGNING_KEY" "$SIGNING_CERT" "$raw" && zstd -q -T0 --rm "$raw"
+            ;;
+        *.ko.gz)
+            raw="${mod%.gz}"
+            gzip -d -q -f "$mod" && "$SIGN_FILE" sha256 "$SIGNING_KEY" "$SIGNING_CERT" "$raw" && gzip -q -f "$raw"
+            ;;
     esac
-}
-export -f sign_worker
-
-log "Signing modules in parallel..."
-find "$KERNEL_DIR" -type f \( -name "*.ko" -o -name "*.ko.xz" -o -name "*.ko.zst" -o -name "*.ko.gz" \) -print0 | \
-    xargs -0 -P "$(nproc)" -I {} bash -c 'sign_worker "$1" "$2" "$3" "$4"' _ {} "$SIGN_FILE" "$SIGNING_KEY" "$SIGNING_CERT"
+done
 
 depmod -b / -a "$KERNEL_VER"
 
