@@ -110,7 +110,7 @@ jobs:
 
           MOK_PEM="${{ github.workspace }}/build_files/MOK.pem"
 
-          podman create --name temp-sign "$LOCAL_IMAGE"
+          podman create --name temp-sign "containers-storage:$LOCAL_IMAGE"
 
           KERNEL_PATH=$(podman export temp-sign | tar -t | grep -E '^usr/lib/modules/[^/]+/vmlinuz$' | head -n 1)
           
@@ -130,7 +130,7 @@ jobs:
           mv ./vmlinuz-signed ./patch/$KERNEL_PATH
 
           cat <<EOF > Patch.Containerfile
-          FROM $LOCAL_IMAGE
+          FROM containers-storage:$LOCAL_IMAGE
           COPY ./patch/usr/ /usr/
           EOF
 
@@ -139,7 +139,6 @@ jobs:
           rm -f /tmp/MOK.priv
           rm -rf ./vmlinuz-unsigned ./patch Patch.Containerfile
           echo "Kernel successfully signed and updated in containers-storage!"
-
 
 
 
