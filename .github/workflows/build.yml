@@ -98,9 +98,15 @@ jobs:
 
 
 
-      - name: Sign Kernel with MOK
+
+
+
+
+   # --- START OF KERNEL SIGNING & PUSH SEGMENT ---
+      - name: Sign Kernel and Push to GHCR
         env:
           KERNEL_SECRET: ${{ secrets.KERNEL_SECRET }}
+          GHCR_IMAGE: "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
           LOCAL_IMAGE: "localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
         run: |
           sudo apt-get update && sudo apt-get install -y sbsigntool
@@ -110,36 +116,47 @@ jobs:
 
           MOK_PEM="${{ github.workspace }}/build_files/MOK.pem"
 
-          podman create --name temp-sign "containers-storage:$LOCAL_IMAGE"
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-          KERNEL_PATH=$(podman export temp-sign | tar -t | grep -E '^usr/lib/modules/[^/]+/vmlinuz$' | head -n 1)
+          echo "Pulling image for modification: $GHCR_IMAGE"
+          docker pull "$GHCR_IMAGE"
+
+          docker create --name temp-sign "$GHCR_IMAGE"
+
+          KERNEL_PATH=$(docker export temp-sign | tar -t | grep -E '^usr/lib/modules/[^/]+/vmlinuz$' | head -n 1)
           
           if [ -z "$KERNEL_PATH" ]; then
             echo "Error: Could not find vmlinuz kernel inside /usr/lib/modules/ of the image!"
-            podman rm temp-sign
+            docker rm temp-sign
             exit 1
           fi
 
           echo "Found kernel at: $KERNEL_PATH. Extracting..."
-          podman cp temp-sign:/$KERNEL_PATH ./vmlinuz-unsigned
-          podman rm temp-sign
+          docker cp temp-sign:/$KERNEL_PATH ./vmlinuz-unsigned
+          docker rm temp-sign
 
           sbsign --key /tmp/MOK.priv --cert "$MOK_PEM" --output ./vmlinuz-signed ./vmlinuz-unsigned
 
           mkdir -p ./patch/$(dirname "$KERNEL_PATH")
           mv ./vmlinuz-signed ./patch/$KERNEL_PATH
 
-          cat <<EOF > Patch.Containerfile
-          FROM containers-storage:$LOCAL_IMAGE
+          cat <<EOF > Patch.Dockerfile
+          FROM $GHCR_IMAGE
           COPY ./patch/usr/ /usr/
           EOF
 
-          podman build -t "$LOCAL_IMAGE" -f Patch.Containerfile .
+          docker build -t "$GHCR_IMAGE" -f Patch.Dockerfile .
+
+          # Load the signed image from docker into podman containers-storage
+          skopeo copy docker-daemon:$GHCR_IMAGE containers-storage:$LOCAL_IMAGE
 
           rm -f /tmp/MOK.priv
-          rm -rf ./vmlinuz-unsigned ./patch Patch.Containerfile
+          rm -rf ./vmlinuz-unsigned ./patch Patch.Dockerfile
           echo "Kernel successfully signed and updated in containers-storage!"
+      # --- END OF KERNEL SIGNING & PUSH SEGMENT ---
 
+
+      
 
 
 
