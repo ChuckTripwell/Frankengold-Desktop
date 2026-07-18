@@ -94,6 +94,7 @@ jobs:
 
 
 # --- START OF KERNEL SIGNING SEGMENT ---
+
       - name: Sign Kernel with MOK
         env:
           KERNEL_SECRET: ${{ secrets.KERNEL_SECRET }}
@@ -123,21 +124,28 @@ jobs:
 
           echo "Found kernel at: $KERNEL_PATH. Extracting..."
           docker cp temp-sign:/$KERNEL_PATH ./vmlinuz-unsigned
+          docker rm temp-sign
 
           sbsign --key /tmp/MOK.priv --cert "$MOK_PEM" --output ./vmlinuz-signed ./vmlinuz-unsigned
 
-          docker cp ./vmlinuz-signed temp-sign:/$KERNEL_PATH
+          mkdir -p ./patch/$(dirname "$KERNEL_PATH")
+          mv ./vmlinuz-signed ./patch/$KERNEL_PATH
 
-          docker commit temp-sign "$GHCR_IMAGE"
+          cat <<EOF > Patch.Dockerfile
+          FROM $GHCR_IMAGE
+          COPY ./patch/usr/ /usr/
+          EOF
+
+          docker build -t "$GHCR_IMAGE" -f Patch.Dockerfile .
 
           echo "Pushing signed image back to GHCR..."
           docker push "$GHCR_IMAGE"
 
-          docker rm temp-sign
           rm -f /tmp/MOK.priv
-          rm -f ./vmlinuz-unsigned ./vmlinuz-signed
-          echo "Kernel successfully signed and updated in place on GHCR!"
-      # --- END OF KERNEL SIGNING SEGMENT ---
+          rm -rf ./vmlinuz-unsigned ./patch Patch.Dockerfile
+          echo "Kernel successfully signed and updated via container layer injection!"
+      
+# --- END OF KERNEL SIGNING SEGMENT ---
 
 
 
