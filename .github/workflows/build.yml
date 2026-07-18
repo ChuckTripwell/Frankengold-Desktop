@@ -101,16 +101,22 @@ jobs:
 
 
 
-# --- START OF KERNEL SIGNING SEGMENT ---
-      - name: Sign Kernel with MOK
+      - name: Sign Kernel with MOK and Push to GHCR
         env:
           KERNEL_SECRET: ${{ secrets.KERNEL_SECRET }}
-          GHCR_IMAGE: "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
+          IMAGE_REGISTRY: ${{ env.IMAGE_REGISTRY }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          DEFAULT_TAG: ${{ env.DEFAULT_TAG }}
         run: |
           sudo apt-get update && sudo apt-get install -y sbsigntool
           echo "$KERNEL_SECRET" > /tmp/MOK.priv
           chmod 600 /tmp/MOK.priv
           MOK_PEM="${{ github.workspace }}/build_files/MOK.pem"
+          
+          LOWCASE_REGISTRY=$(echo "${IMAGE_REGISTRY}" | tr '[:upper:]' '[:lower:]')
+          LOWCASE_NAME=$(echo "${IMAGE_NAME}" | tr '[:upper:]' '[:lower:]')
+          GHCR_IMAGE="${LOWCASE_REGISTRY}/${LOWCASE_NAME}:${DEFAULT_TAG}"
+          
           echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u ${{ github.actor }} --password-stdin
           podman unshare podman pull "$GHCR_IMAGE"
           podman unshare podman create --name temp-sign "$GHCR_IMAGE"
@@ -132,7 +138,8 @@ jobs:
           podman unshare podman build -t "localhost/my-ublue-image:latest" -f Patch.Dockerfile .
           rm -f /tmp/MOK.priv
           rm -rf ./vmlinuz-unsigned ./patch Patch.Dockerfile
-      # --- END OF KERNEL SIGNING SEGMENT ---
+          
+          podman unshare skopeo copy containers-storage:localhost/my-ublue-image:latest "docker://${GHCR_IMAGE}"
 
 
 
@@ -166,10 +173,10 @@ jobs:
 
 
       
-      - name: Push Signed Image
-        run: |
-          # Push your locally modified signed image up to GHCR
-          podman unshare skopeo copy containers-storage:localhost/my-ublue-image:latest docker://ghcr.io/${{ github.repository }}:latest
+      #- name: Push Signed Image
+      #  run: |
+      #    # Push your locally modified signed image up to GHCR
+      #    podman unshare skopeo copy containers-storage:localhost/my-ublue-image:latest docker://ghcr.io/${{ github.repository }}:latest
 
       # This is optional, this provides smaller delta updates
       #- name: Rechunk with rpm-ostree
