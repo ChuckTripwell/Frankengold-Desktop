@@ -90,9 +90,6 @@ RUN sed -i 's|/\.autorelabel|/etc/.autorelabel|g' /usr/lib/systemd/system-genera
 RUN echo 'kargs = ["lsm=landlock,lockdown,yama,integrity,selinux,bpf", "selinux=1", "enforcing=1", "selinux_dontaudit=0", "selinux_deny_unknown=1"]' > /usr/lib/bootc/kargs.d/90-security-overrides.toml
 #
 RUN sed -i 's/active = yes/active = no/' /etc/audit/plugins.d/sedispatch.conf
-#
-# :::::: SecureBoot :::::: 
-RUN dnf5 -y install --allowerasing mokutil sbsigntools
 
 # :::::: cleanup :::::: 
 RUN rm -rf /ctx
@@ -109,6 +106,9 @@ RUN rm -rf /usr/lib/firmware/amdgpu/vangar* && \
 # Remove heavy icon themes
 RUN rm -rf /usr/share/icons/Adwaita && \
     rm -rf /usr/share/icons/HighContrast
+
+# :::::: SecureBoot :::::: 
+RUN dnf5 -y install --allowerasing mokutil sbsigntools
 
 # :::::: slot the kernel into place :::::: 
 RUN mkdir -p /var/tmp
