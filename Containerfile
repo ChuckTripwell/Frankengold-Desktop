@@ -3,6 +3,14 @@
 ##################################################################################################################################################
 FROM docker.io/pkgforge/cachyos-base:x86_64 AS cachyos
 
+# :::::: prepare the kernel :::::: 
+RUN rm -rf /lib/modules/*
+RUN pacman -Sy --disable-sandbox --noconfirm
+RUN pacman -Sy --disable-sandbox --noconfirm archlinux-keyring cachyos-keyring
+RUN pacman -Sy --disable-sandbox --noconfirm
+RUN pacman -S --disable-sandbox --noconfirm linux-cachyos-rc-nvidia-open linux-cachyos-rc-headers
+  RUN pacman -S --disable-sandbox --noconfirm vulkan-tools vulkan-icd-loader lib32-vulkan-icd-loader dkms nvidia-utils lib32-nvidia-utils
+
 # :::::: slot the kernel into place :::::: 
 RUN mkdir -p /var/tmp
 RUN printf "systemdsystemconfdir=/etc/systemd/system\nsystemdsystemunitdir=/usr/lib/systemd/system\n" | tee /usr/lib/dracut/dracut.conf.d/30-bootcrew-fix-bootc-module.conf && \
