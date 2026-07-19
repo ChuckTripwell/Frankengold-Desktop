@@ -74,15 +74,6 @@ jobs:
             ${IMAGE_NAME} \
             ${DEFAULT_TAG}
 
-
-      
-      
-      
-      
-      
-      
-      
-      
       - name: Sign Kernel Image
         env:
           KERNEL_SECRET: ${{ secrets.KERNEL_SECRET }}
@@ -92,15 +83,13 @@ jobs:
           sudo podman commit kernel-signer ${IMAGE_NAME}:${DEFAULT_TAG}
           sudo podman rm kernel-signer
 
-
-
-      # This is optional, this provides smaller delta updates
-     # - name: Rechunk with rpm-ostree
-     #   id: rechunk
-     #   run: |
-     #     sudo -E $(command -v just) ostree-rechunk \
-     #       ${IMAGE_NAME} \
-     #       ${DEFAULT_TAG}
+    # This is optional, this provides smaller delta updates
+      - name: Rechunk with rpm-ostree
+        id: rechunk
+        run: |
+          sudo -E $(command -v just) ostree-rechunk \
+            ${IMAGE_NAME} \
+            ${DEFAULT_TAG}
 
       # If you are feeling adventurous, use the new distro agnostic rechunker
       # https://github.com/coreos/chunkah
