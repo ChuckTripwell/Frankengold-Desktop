@@ -98,6 +98,9 @@ build $target_image=image_name $tag=default_tag:
 
     set -euox pipefail
 
+    export STORAGE_DRIVER=overlay
+    export BUILDAH_ISOLATION=chroot
+
     BUILD_ARGS=()
     LABELS=()
     if [[ -z "$(git status -s)" ]]; then
