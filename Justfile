@@ -98,9 +98,6 @@ build $target_image=image_name $tag=default_tag:
 
     set -euox pipefail
 
-    export STORAGE_DRIVER=overlay
-    export BUILDAH_ISOLATION=chroot
-    
     BUILD_ARGS=()
     LABELS=()
     if [[ -z "$(git status -s)" ]]; then
@@ -111,20 +108,11 @@ build $target_image=image_name $tag=default_tag:
         LABELS+=("--label" "org.opencontainers.image.url=https://github.com/{{ repo_organization }}/{{ image_name }}/tree/${GIT_SHA}")
         LABELS+=("--label" "org.opencontainers.image.version={{ default_tag }}.$(date +%Y%m%d)-${GIT_SHA}")
     fi
-    
-    LABELS+=("--label" "io.artifacthub.package.deprecated=false")
-    LABELS+=("--label" "io.artifacthub.package.keywords={{ image_keywords }}")
-    LABELS+=("--label" "io.artifacthub.package.license=Apache-2.0")
-    LABELS+=("--label" "io.artifacthub.package.logo-url={{ image_logo_url }}")
-    LABELS+=("--label" "io.artifacthub.package.prerelease=false")
-    LABELS+=("--label" "org.opencontainers.image.created=$(date -u +%Y\-%m\-%d\T%H\:%M\:%S\Z)")
-    LABELS+=("--label" "org.opencontainers.image.description={{ image_desc }}")
-    LABELS+=("--label" "org.opencontainers.image.title={{ image_name }}")
-    LABELS+=("--label" "org.opencontainers.image.vendor={{ repo_organization }}")
-    
-    PODMAN_BUILD_ARGS=("${BUILD_ARGS[@]}" "${LABELS[@]}" --pull=missing --tag "${target_image}:${tag}" --file Containerfile)
-    
-    podman --storage-driver=overlay build "${PODMAN_BUILD_ARGS[@]}" .
+
+    # This actually builds the image!
+    PODMAN_BUILD_ARGS=("${BUILD_ARGS[@]}" "${LABELS[@]}" --pull=newer --tag "${target_image}:${tag}" --file Containerfile)
+
+    podman build "${PODMAN_BUILD_ARGS[@]}" .
 
 # Split the image for smaller updates (New)!
 rechunk $target_image=image_name $tag=default_tag:
