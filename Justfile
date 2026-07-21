@@ -98,6 +98,9 @@ build $target_image=image_name $tag=default_tag:
 
     set -euox pipefail
 
+    export STORAGE_DRIVER=overlay
+    export BUILDAH_ISOLATION=chroot
+    
     BUILD_ARGS=()
     LABELS=()
     if [[ -z "$(git status -s)" ]]; then
@@ -108,9 +111,7 @@ build $target_image=image_name $tag=default_tag:
         LABELS+=("--label" "org.opencontainers.image.url=https://github.com/{{ repo_organization }}/{{ image_name }}/tree/${GIT_SHA}")
         LABELS+=("--label" "org.opencontainers.image.version={{ default_tag }}.$(date +%Y%m%d)-${GIT_SHA}")
     fi
-
-    # Image metadata for https://artifacthub.io/ - This is optional but is highly recommended so we all can get a index of all the custom images
-    # The metadata by itself is not going to do anything, you choose if you want your image to be on ArtifactHub or not.
+    
     LABELS+=("--label" "io.artifacthub.package.deprecated=false")
     LABELS+=("--label" "io.artifacthub.package.keywords={{ image_keywords }}")
     LABELS+=("--label" "io.artifacthub.package.license=Apache-2.0")
@@ -120,11 +121,10 @@ build $target_image=image_name $tag=default_tag:
     LABELS+=("--label" "org.opencontainers.image.description={{ image_desc }}")
     LABELS+=("--label" "org.opencontainers.image.title={{ image_name }}")
     LABELS+=("--label" "org.opencontainers.image.vendor={{ repo_organization }}")
-
-    # This actually builds the image!
-    PODMAN_BUILD_ARGS=("${BUILD_ARGS[@]}" "${LABELS[@]}" --pull=newer --tag "${target_image}:${tag}" --file Containerfile)
-
-    podman build "${PODMAN_BUILD_ARGS[@]}" .
+    
+    PODMAN_BUILD_ARGS=("${BUILD_ARGS[@]}" "${LABELS[@]}" --pull=missing --tag "${target_image}:${tag}" --file Containerfile)
+    
+    podman --storage-driver=overlay build "${PODMAN_BUILD_ARGS[@]}" .
 
 # Split the image for smaller updates (New)!
 rechunk $target_image=image_name $tag=default_tag:
