@@ -98,9 +98,6 @@ build $target_image=image_name $tag=default_tag:
 
     set -euox pipefail
 
-    export STORAGE_DRIVER=overlay
-    export BUILDAH_ISOLATION=chroot
-
     BUILD_ARGS=()
     LABELS=()
     if [[ -z "$(git status -s)" ]]; then
@@ -115,7 +112,7 @@ build $target_image=image_name $tag=default_tag:
     # This actually builds the image!
     PODMAN_BUILD_ARGS=("${BUILD_ARGS[@]}" "${LABELS[@]}" --pull=newer --tag "${target_image}:${tag}" --file Containerfile)
 
-    podman build "${PODMAN_BUILD_ARGS[@]}" .
+    sudo podman build "${PODMAN_BUILD_ARGS[@]}" .
 
 # Split the image for smaller updates (New)!
 rechunk $target_image=image_name $tag=default_tag:
