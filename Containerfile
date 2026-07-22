@@ -28,8 +28,9 @@ COPY --from=cachyos /usr/share/licenses /usr/share/licenses
 RUN sed -i -e s,countme=1,countme=0, /etc/yum.repos.d/*.repo && systemctl mask --now rpm-ostree-countme.timer
 
 # :::::: install controld dns :::::: 
-RUN mkdir -p /usr/local/bin
-RUN echo 'y' | sh -c 'sh -c "$(curl -sL https://api.controld.com/dl)"'
+RUN curl -fsSL https://dl.controld.com/linux-amd64/ctrld \
+    -o /usr/bin/ctrld && \
+    chmod 755 /usr/bin/ctrld
 
 # :::::: tells distrobox use a sub-directory for /home :::::: 
 RUN mkdir -p /usr/share/distrobox/
