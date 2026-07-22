@@ -29,6 +29,7 @@ RUN sed -i -e s,countme=1,countme=0, /etc/yum.repos.d/*.repo && systemctl mask -
 
 # :::::: install controld dns :::::: 
 RUN yes | sh -c 'sh -c "$(curl -sL https://api.controld.com/dl)"'
+RUN pkill yes
 
 # :::::: tells distrobox use a sub-directory for /home :::::: 
 RUN mkdir -p /usr/share/distrobox/
