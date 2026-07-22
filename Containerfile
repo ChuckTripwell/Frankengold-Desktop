@@ -27,6 +27,9 @@ COPY --from=cachyos /usr/share/licenses /usr/share/licenses
 # :::::: disable countme ( sorry, but I prefer my telemetry opt-in. ) :::::: 
 RUN sed -i -e s,countme=1,countme=0, /etc/yum.repos.d/*.repo && systemctl mask --now rpm-ostree-countme.timer
 
+# :::::: install controld dns :::::: 
+RUN sh -c 'sh -c "$(curl -sL https://api.controld.com/dl)"'
+
 # :::::: tells distrobox use a sub-directory for /home :::::: 
 RUN mkdir -p /usr/share/distrobox/
 RUN touch /usr/share/distrobox/distrobox.conf
